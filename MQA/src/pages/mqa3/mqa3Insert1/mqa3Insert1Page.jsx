@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -16,6 +17,7 @@ import styles from './mqa3Insert1Page.module.css'
 function mqa3Insert1Page() {
   const [teachers, setTeachers] = useState([''])
 
+  const navigate = useNavigate()
   const addTeacher = () => {
     setTeachers((prev) => [...prev, ''])
   }
@@ -243,23 +245,23 @@ function mqa3Insert1Page() {
           </Box>
 
           <Box className={styles.actionBar}>
-            <Button
-              variant="outlined"
-              startIcon={<NavigateBeforeIcon />}
-              disabled
-              className={styles.backButton}
-            >
-              ย้อนกลับ
-            </Button>
-
-            <Button
-              variant="contained"
-              endIcon={<NavigateNextIcon />}
-              className={styles.nextButton}
-            >
-              ถัดไป
-            </Button>
-          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<NavigateBeforeIcon />}
+            disabled
+            className={styles.backButton}
+          >
+            ย้อนกลับ
+          </Button>
+          <Button
+            variant="contained"
+            endIcon={<NavigateNextIcon />}
+            className={styles.nextButton}
+            onClick={() => navigate('/mqa3Insert-2')}
+          >
+            ถัดไป
+          </Button>
+        </Box>
         </Box>
       </Box>
     </Box>
