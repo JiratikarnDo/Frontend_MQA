@@ -1,0 +1,19 @@
+.layout {
+  min-height: 100vh;
+  background: #edf4fc;
+}
+
+.navbarSection {
+  width: 100%;
+  padding: 16px 24px 10px;
+  background: transparent;
+}
+
+.navbarInner {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.pageContent {
+  width: 100%;
+}
