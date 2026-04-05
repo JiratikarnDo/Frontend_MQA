@@ -163,6 +163,7 @@
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: pointer;
 }
 
 .majorCard:hover {
@@ -229,46 +230,6 @@
   color: #64748b;
 }
 
-@media (max-width: 1200px) {
-  .majorGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  .pageHeader {
-    flex-direction: column;
-  }
-
-  .majorGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .page {
-    padding: 20px 14px 40px;
-  }
-
-  .contentShell {
-    padding: 18px;
-    border-radius: 20px;
-  }
-
-  .infoBanner,
-  .majorCard {
-    padding: 18px;
-    border-radius: 18px;
-  }
-
-  .majorGrid {
-    grid-template-columns: 1fr;
-  }
-}
-.majorCard {
-  cursor: pointer;
-}
-
 .actionDialogPaper {
   border-radius: 24px !important;
   border: 1px solid rgba(37, 99, 235, 0.12);
@@ -321,12 +282,13 @@
 
 .actionOptionGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
 .actionOptionCard {
   display: grid;
+  grid-template-rows: auto auto 1fr auto;
   gap: 12px;
   padding: 20px;
   border-radius: 20px;
@@ -350,6 +312,7 @@
   font-size: 1.05rem !important;
   font-weight: 800 !important;
   color: #0f172a;
+  line-height: 1.6 !important;
 }
 
 .actionOptionDescription {
@@ -358,7 +321,9 @@
 }
 
 .actionOptionButton {
-  justify-self: flex-start;
+  width: 100%;
+  min-height: 44px !important;
+  justify-self: stretch;
   margin-top: 4px !important;
   border-radius: 14px !important;
   text-transform: none !important;
@@ -371,7 +336,52 @@
   padding: 0 24px 20px !important;
 }
 
+@media (max-width: 1200px) {
+  .majorGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .actionOptionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .pageHeader {
+    flex-direction: column;
+  }
+
+  .majorGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .actionOptionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
+  .page {
+    padding: 20px 14px 40px;
+  }
+
+  .contentShell {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .infoBanner,
+  .majorCard {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .majorGrid {
+    grid-template-columns: 1fr;
+  }
+
   .actionDialogTitle {
     padding: 18px 18px 8px !important;
   }

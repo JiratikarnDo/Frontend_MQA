@@ -17,6 +17,10 @@ import SelectDegreePage from './pages/curriculum/selectDegree/selectDegreePage'
 import AddSubjectPage from './pages/curriculum/addSubject/addSubjectPage'
 import ManageMajorPage from './pages/curriculum/manageMajor/manageMajorPage'
 import ManageDeadlinePage from './pages/deadline/manageDeadlinePage'
+import ManageSubPloPage from './pages/plo/manageSubPlo/manageSubPloPage'
+import ManagePloSubjectMappingPage from './pages/plo/managePloSubjectMapping/managePloSubjectMappingPage'
+import ManageDocumentCheckPage from './pages/documentCheck/manageDocumentCheckPage'
+
 function App() {
   return (
     <Routes>
@@ -38,6 +42,9 @@ function App() {
         <Route path="/addSubject" element={<AddSubjectPage />} />
         <Route path="/manageMajor" element={<ManageMajorPage />} />
         <Route path="/manageDeadline" element={<ManageDeadlinePage />} />
+        <Route path="/manageSubPlo" element={<ManageSubPloPage />} />
+        <Route path="/managePloSubjectMapping" element={<ManagePloSubjectMappingPage />} />
+        <Route path="/manageDocumentCheck" element={<ManageDocumentCheckPage />} />
       </Route>
     </Routes>
   )

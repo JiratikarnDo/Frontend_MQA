@@ -16,6 +16,8 @@ import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
+import DeviceHubRoundedIcon from '@mui/icons-material/DeviceHubRounded'
+import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded'
 import styles from './manageMajorPage.module.css'
 
 const mockMajorList = [
@@ -54,7 +56,9 @@ function ManageMajorPage() {
   const filteredMajorList = useMemo(() => {
     const normalizedKeyword = searchKeyword.trim().toLowerCase()
 
-    if (!normalizedKeyword) return mockMajorList
+    if (!normalizedKeyword) {
+      return mockMajorList
+    }
 
     return mockMajorList.filter((major) => {
       return (
@@ -78,6 +82,26 @@ function ManageMajorPage() {
     if (!selectedMajor) return
 
     navigate('/addSubject', {
+      state: {
+        major: selectedMajor,
+      },
+    })
+  }
+
+  const handleGoToManagePloSubjectMapping = () => {
+    if (!selectedMajor) return
+
+    navigate('/managePloSubjectMapping', {
+      state: {
+        major: selectedMajor,
+      },
+    })
+  }
+
+  const handleGoToManageDocumentCheck = () => {
+    if (!selectedMajor) return
+
+    navigate('/manageDocumentCheck', {
       state: {
         major: selectedMajor,
       },
@@ -208,7 +232,7 @@ function ManageMajorPage() {
         open={isActionDialogOpen}
         onClose={handleCloseActionDialog}
         fullWidth
-        maxWidth="sm"
+        maxWidth="lg"
         PaperProps={{
           className: styles.actionDialogPaper,
         }}
@@ -255,6 +279,51 @@ function ManageMajorPage() {
                 onClick={handleGoToAddSubject}
               >
                 ไปหน้าเพิ่มวิชา
+              </Button>
+            </Box>
+
+            <Box className={styles.actionOptionCard}>
+              <Box className={styles.actionOptionIcon}>
+                <DeviceHubRoundedIcon />
+              </Box>
+
+              <Typography className={styles.actionOptionTitle}>
+                จัดการความเชื่อมโยงผลลัพธ์การเรียนรู้กับรายวิชาในหลักสูตร
+              </Typography>
+
+              <Typography className={styles.actionOptionDescription}>
+                ใช้สำหรับกำหนดความเชื่อมโยงของผลลัพธ์การเรียนรู้กับรายวิชาในหลักสูตรของสาขานี้
+              </Typography>
+
+              <Button
+                variant="contained"
+                className={styles.actionOptionButton}
+                onClick={handleGoToManagePloSubjectMapping}
+              >
+                ไปหน้าจัดการ
+              </Button>
+            </Box>
+
+            <Box className={styles.actionOptionCard}>
+              <Box className={styles.actionOptionIcon}>
+                <FactCheckRoundedIcon />
+              </Box>
+
+              <Typography className={styles.actionOptionTitle}>
+                ตรวจสอบการส่งเอกสาร มคอ.
+              </Typography>
+
+              <Typography className={styles.actionOptionDescription}>
+                ใช้สำหรับตรวจสอบว่าอาจารย์ในสาขานี้ส่งเอกสาร มคอ. ครบหรือยัง
+                ส่งเวลาใด และมีรายการใดที่ล่าช้าหรือยังไม่ส่ง
+              </Typography>
+
+              <Button
+                variant="contained"
+                className={styles.actionOptionButton}
+                onClick={handleGoToManageDocumentCheck}
+              >
+                ไปหน้าตรวจเอกสาร
               </Button>
             </Box>
           </Box>

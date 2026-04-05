@@ -57,6 +57,15 @@ function MainNavbar({
         >
           จัดการกำหนดส่ง
         </NavLink>
+
+        <NavLink
+          to="/manageSubPlo"
+          className={({ isActive }) =>
+            `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`
+          }
+        >
+          จัดการ Sub-PLO ของหลักสูตร
+        </NavLink>
       </Box>
 
       <Box className={styles.rightSection}>
