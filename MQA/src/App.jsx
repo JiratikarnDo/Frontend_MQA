@@ -20,6 +20,10 @@ import ManageDeadlinePage from './pages/deadline/manageDeadlinePage'
 import ManageSubPloPage from './pages/plo/manageSubPlo/manageSubPloPage'
 import ManagePloSubjectMappingPage from './pages/plo/managePloSubjectMapping/managePloSubjectMappingPage'
 import ManageDocumentCheckPage from './pages/documentCheck/manageDocumentCheckPage'
+{/* หัวหน้าสาขา */}
+import CourseOpeningBachelorPage from './pages/courseOpeningBachelor/courseOpeningBachelorPage'
+import CourseOpeningMasterPage from './pages/courseOpeningMaster/courseOpeningMasterPage'
+import CourseOpeningDoctoralPage from './pages/courseOpeningDoctoral/courseOpeningDoctoralPage'
 
 function App() {
   return (
@@ -45,6 +49,10 @@ function App() {
         <Route path="/manageSubPlo" element={<ManageSubPloPage />} />
         <Route path="/managePloSubjectMapping" element={<ManagePloSubjectMappingPage />} />
         <Route path="/manageDocumentCheck" element={<ManageDocumentCheckPage />} />
+        {/* หัวหน้าสาขา */}
+        <Route path="/courseOpeningBachelor" element={<CourseOpeningBachelorPage />} />
+        <Route path="/courseOpeningMaster" element={<CourseOpeningMasterPage />} />
+        <Route path="/courseOpeningDoctoral" element={<CourseOpeningDoctoralPage />} />
       </Route>
     </Routes>
   )
