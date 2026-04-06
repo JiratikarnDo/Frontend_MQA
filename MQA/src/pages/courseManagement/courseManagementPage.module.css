@@ -1,0 +1,387 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, #f5fbff 0%, #eef7ff 100%);
+}
+
+.backgroundGlowTop {
+  position: absolute;
+  top: -120px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.backgroundGlowBottom {
+  position: absolute;
+  right: -120px;
+  bottom: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.pageTitle {
+  margin-bottom: 8px !important;
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.pageDescription {
+  max-width: 980px;
+  font-size: 1rem !important;
+  line-height: 1.7 !important;
+  color: #475569 !important;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.summaryCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.summaryIconBlue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  flex-shrink: 0;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.summaryLabel {
+  margin-bottom: 4px !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+}
+
+.summaryValue {
+  font-size: 1.7rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.filterCard,
+.listCard {
+  padding: 28px;
+  border-radius: 30px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.filterCard {
+  margin-bottom: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.sectionDescription {
+  max-width: 820px;
+  font-size: 0.96rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr 1fr;
+  gap: 16px;
+}
+
+.resultChip {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+.tableContainer {
+  border-radius: 24px;
+  border: 1px solid rgba(191, 219, 254, 0.68);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  overflow-x: auto;
+}
+
+.table {
+  min-width: 1160px;
+}
+
+.tableHeadRow {
+  background: #eff6ff;
+}
+
+.headCell {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  color: #1e3a8a !important;
+  border-bottom: 1px solid rgba(191, 219, 254, 0.85) !important;
+  white-space: nowrap;
+}
+
+.tableBodyRow:hover {
+  background: rgba(239, 246, 255, 0.5);
+}
+
+.bodyCell {
+  vertical-align: top !important;
+  padding-top: 18px !important;
+  padding-bottom: 18px !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85) !important;
+}
+
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.levelBadgeBachelor {
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+}
+
+.levelBadgeMaster {
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.16);
+  color: #7c3aed;
+}
+
+.levelBadgeDoctoral {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.16);
+  color: #0369a1;
+}
+
+.primaryText {
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.codeText {
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  color: #0f172a !important;
+}
+
+.courseInfoBlock {
+  min-width: 240px;
+}
+
+.courseName {
+  margin-bottom: 6px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  line-height: 1.6 !important;
+}
+
+.courseMeta {
+  font-size: 0.88rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.groupStudentInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 120px;
+}
+
+.studentCountPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-width: 78px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.assignmentCell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 280px;
+}
+
+.assignmentStatusAssigned,
+.assignmentStatusPending {
+  width: fit-content;
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+}
+
+.assignmentStatusAssigned {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: #15803d !important;
+  border: 1px solid rgba(34, 197, 94, 0.18) !important;
+}
+
+.assignmentStatusPending {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.18) !important;
+}
+
+.teacherChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teacherChip {
+  border-radius: 999px !important;
+  background: #f8fafc !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+.unassignedText {
+  max-width: 320px;
+  font-size: 0.9rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.primaryButton,
+.outlinedButton {
+  border-radius: 14px !important;
+  padding: 9px 16px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  white-space: nowrap;
+}
+
+.primaryButton {
+  box-shadow: none !important;
+}
+
+.emptyTableCell {
+  padding: 0 !important;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 46px 20px;
+  text-align: center;
+}
+
+.emptyStateIcon {
+  font-size: 48px !important;
+  margin-bottom: 12px;
+  color: #93c5fd;
+}
+
+.emptyStateTitle {
+  margin-bottom: 8px !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.emptyStateDescription {
+  max-width: 520px;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+@media (max-width: 1200px) {
+  .filterGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .sectionHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 24px 16px 40px;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pageTitle {
+    font-size: 1.7rem !important;
+  }
+
+  .filterCard,
+  .listCard {
+    padding: 20px;
+  }
+}

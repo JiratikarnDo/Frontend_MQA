@@ -1,4 +1,3 @@
-/* ─── Page Shell ──────────────────────────────────────────── */
 .page {
   position: relative;
   min-height: 100vh;
@@ -41,7 +40,6 @@
   padding: 32px 24px 48px;
 }
 
-/* ─── Page Header ─────────────────────────────────────────── */
 .pageHeader {
   margin-bottom: 24px;
 }
@@ -60,7 +58,103 @@
   color: #475569 !important;
 }
 
-/* ─── Section Card ────────────────────────────────────────── */
+.modeCard {
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.96) 100%);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+}
+
+.modeCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.modeTextBlock {
+  flex: 1;
+  min-width: 0;
+}
+
+.modeEyebrow {
+  margin-bottom: 8px !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #2563eb !important;
+}
+
+.modeTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.08rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.modeDescription {
+  max-width: 860px;
+  line-height: 1.7 !important;
+  color: #475569 !important;
+}
+
+.modeChipRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.requestIdChip {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.18) !important;
+}
+
+.lockedHint {
+  margin-top: 14px !important;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(254, 242, 242, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+  line-height: 1.7 !important;
+  color: #991b1b !important;
+}
+
+.viewModeHintBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(191, 219, 254, 0.8);
+  background: rgba(248, 251, 255, 0.98);
+}
+
+.viewModeHintIcon {
+  margin-top: 2px;
+  color: #2563eb;
+}
+
+.viewModeHintTitle {
+  margin-bottom: 4px !important;
+  font-size: 0.98rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.viewModeHintDescription {
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
 .sectionCard {
   margin-bottom: 24px;
   padding: 28px;
@@ -77,7 +171,6 @@
   color: #0f172a !important;
 }
 
-/* ─── General Form ────────────────────────────────────────── */
 .formGridThree {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -124,7 +217,6 @@
   gap: 12px;
 }
 
-/* ─── Study Form ──────────────────────────────────────────── */
 .studySection {
   display: flex;
   flex-direction: column;
@@ -159,7 +251,6 @@
   color: #64748b !important;
 }
 
-/* ─── Year Block Section Header ───────────────────────────── */
 .sectionHeaderRow {
   display: flex;
   justify-content: space-between;
@@ -181,7 +272,6 @@
   gap: 20px;
 }
 
-/* ─── Year Block ──────────────────────────────────────────── */
 .yearBlock {
   border: 1px solid rgba(59, 130, 246, 0.14);
   border-radius: 24px;
@@ -262,7 +352,6 @@
   padding: 18px 22px 14px;
 }
 
-/* ─── Subject Table ───────────────────────────────────────── */
 .tableSection {
   margin: 0 22px 18px;
   border: 1px solid #dbeafe;
@@ -271,7 +360,7 @@
   overflow-y: hidden;
   background: #ffffff;
 }
-/* --- Column width definitions (ใช้ร่วมกับ header+row) --- */
+
 .colIndex {
   flex: 0 0 90px;
   min-width: 90px;
@@ -326,7 +415,6 @@
   max-width: 68px;
 }
 
-/* --- Header Row --- */
 .tableHeaderRow {
   display: flex;
   align-items: stretch;
@@ -335,38 +423,6 @@
   min-width: 2188px;
 }
 
-/* --- Body Row --- */
-.tableRow {
-  display: flex;
-  align-items: stretch;
-  border-bottom: 1px solid #e8f0fb;
-  background: #ffffff;
-  transition: background 0.15s;
-  min-width: 2188px;
-}
-
-.tableHeaderCell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 10px;
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: #1e40af;
-  text-align: center;
-  line-height: 1.45;
-  white-space: normal;
-  word-break: break-word;
-  overflow: visible;
-  text-overflow: unset;
-  border-right: 1px solid #dbeafe;
-}
-
-.tableHeaderCell:last-child {
-  border-right: none;
-}
-
-/* --- Body --- */
 .tableBody {
   display: flex;
   flex-direction: column;
@@ -397,6 +453,27 @@
   background: #eef5ff;
 }
 
+.tableHeaderCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e40af;
+  text-align: center;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: unset;
+  border-right: 1px solid #dbeafe;
+}
+
+.tableHeaderCell:last-child {
+  border-right: none;
+}
+
 .tableCell {
   padding: 8px 10px;
   border-right: 1px solid #e8f0fb;
@@ -410,7 +487,6 @@
   border-right: none;
 }
 
-/* ─── Index Cell ──────────────────────────────────────────── */
 .indexCell {
   justify-content: center;
   font-size: 0.9rem;
@@ -419,12 +495,10 @@
   background: #f0f7ff;
 }
 
-/* ─── Center Cell ─────────────────────────────────────────── */
 .centerCell {
   justify-content: center;
 }
 
-/* ─── Compact TextField ───────────────────────────────────── */
 .compactField :global(.MuiOutlinedInput-root) {
   border-radius: 10px;
   font-size: 0.88rem;
@@ -434,7 +508,6 @@
   padding: 7px 10px;
 }
 
-/* ─── Subject Picker Button ───────────────────────────────── */
 .courseNameCell {
   display: flex;
   flex-direction: column;
@@ -477,12 +550,10 @@
   color: #475569;
 }
 
-/* ─── Track Checkbox ──────────────────────────────────────── */
 .trackCheckbox {
   padding: 4px !important;
 }
 
-/* ─── Delete Row Button ───────────────────────────────────── */
 .deleteRowButton {
   min-width: 36px !important;
   width: 36px;
@@ -491,7 +562,6 @@
   border-radius: 10px !important;
 }
 
-/* ─── Subject Action Row ──────────────────────────────────── */
 .subjectActionRow {
   display: flex;
   align-items: center;
@@ -505,7 +575,6 @@
   font-weight: 600 !important;
 }
 
-/* ─── Buttons ─────────────────────────────────────────────── */
 .primaryButton {
   border-radius: 14px !important;
   padding: 10px 18px !important;
@@ -515,7 +584,6 @@
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2) !important;
 }
 
-/* ─── Responsible People ──────────────────────────────────── */
 .subSectionTitle {
   margin-bottom: 16px !important;
   font-size: 1rem !important;
@@ -569,7 +637,6 @@
   margin-bottom: 24px;
 }
 
-/* ─── Signers ─────────────────────────────────────────────── */
 .signerGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -593,7 +660,6 @@
   color: #0f172a !important;
 }
 
-/* ─── Confirm & Submit ────────────────────────────────────── */
 .confirmBox {
   padding: 16px 18px;
   margin-bottom: 24px;
@@ -617,7 +683,84 @@
   box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22) !important;
 }
 
-/* ─── Responsive ──────────────────────────────────────────── */
+.requestActionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 26px;
+  border-radius: 26px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.requestActionInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.requestActionTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.08rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.requestActionDescription {
+  max-width: 800px;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.requestActionButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.editButton,
+.saveButton,
+.cancelEditButton {
+  border-radius: 14px !important;
+  padding: 10px 18px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.saveButton,
+.editButton {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: none !important;
+}
+
+.statusChipDraft,
+.statusChipPendingApproval,
+.statusChipRejected {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+}
+
+.statusChipDraft {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.18) !important;
+}
+
+.statusChipPendingApproval {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: #15803d !important;
+  border: 1px solid rgba(34, 197, 94, 0.18) !important;
+}
+
+.statusChipRejected {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.18) !important;
+}
+
 @media (max-width: 1200px) {
   .formGridBottom,
   .optionRowTwo,
@@ -649,12 +792,35 @@
   .majorFieldWrapper,
   .sectionHeaderRow,
   .yearBlockHeader,
-  .yearBlockHeaderRight {
+  .yearBlockHeaderRight,
+  .modeCardTop,
+  .requestActionCard {
     flex-direction: column;
     align-items: stretch;
   }
 
   .yearLevelSelect {
     min-width: 100%;
+  }
+
+  .modeChipRow,
+  .requestActionButtons {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 24px 16px 40px;
+  }
+
+  .sectionCard,
+  .modeCard,
+  .requestActionCard {
+    padding: 20px;
+  }
+
+  .pageTitle {
+    font-size: 1.65rem !important;
   }
 }

@@ -24,6 +24,11 @@ import ManageDocumentCheckPage from './pages/documentCheck/manageDocumentCheckPa
 import CourseOpeningBachelorPage from './pages/courseOpeningBachelor/courseOpeningBachelorPage'
 import CourseOpeningMasterPage from './pages/courseOpeningMaster/courseOpeningMasterPage'
 import CourseOpeningDoctoralPage from './pages/courseOpeningDoctoral/courseOpeningDoctoralPage'
+import CourseOpeningRequestListPage from './pages/courseOpeningRequestList/courseOpeningRequestListPage'
+import CourseManagementPage from './pages/courseManagement/courseManagementPage'
+{/* มคอ */}
+import MyAssignedCoursesPage from './pages/myAssignedCourses/myAssignedCoursesPage'
+import MqaOverviewPage from './pages/mqaOverview/mqaOverviewPage'
 
 function App() {
   return (
@@ -53,6 +58,11 @@ function App() {
         <Route path="/courseOpeningBachelor" element={<CourseOpeningBachelorPage />} />
         <Route path="/courseOpeningMaster" element={<CourseOpeningMasterPage />} />
         <Route path="/courseOpeningDoctoral" element={<CourseOpeningDoctoralPage />} />
+        <Route path="/courseOpeningRequestList" element={<CourseOpeningRequestListPage />} />
+        <Route path="/courseManagement" element={<CourseManagementPage />} />
+        {/* มคอ */}
+        <Route path="/myAssignedCourses" element={<MyAssignedCoursesPage />} />
+        <Route path="/mqaOverview" element={<MqaOverviewPage />} />
       </Route>
     </Routes>
   )

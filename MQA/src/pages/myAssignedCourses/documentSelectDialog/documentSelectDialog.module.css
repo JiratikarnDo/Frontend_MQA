@@ -1,0 +1,179 @@
+.dialogPaper {
+  border-radius: 28px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
+  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.14) !important;
+}
+
+.dialogTitleWrapper {
+  padding: 24px 24px 10px !important;
+}
+
+.dialogTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.dialogTitleContent {
+  min-width: 0;
+}
+
+.dialogEyebrow {
+  margin-bottom: 8px !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase;
+  color: #2563eb !important;
+}
+
+.dialogTitle {
+  margin-bottom: 8px !important;
+  font-size: 1.35rem !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  color: #0f172a !important;
+}
+
+.dialogDescription {
+  font-size: 0.96rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.closeButton {
+  flex-shrink: 0;
+  border-radius: 12px !important;
+  color: #475569 !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+}
+
+.dialogContent {
+  padding: 8px 24px 24px !important;
+}
+
+.courseMetaCard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(239, 246, 255, 0.88);
+  border: 1px solid rgba(191, 219, 254, 0.88);
+}
+
+.metaRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metaLabel {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+}
+
+.metaValue {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.6 !important;
+}
+
+.optionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.optionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+}
+
+.optionIconBlue,
+.optionIconIndigo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+
+.optionIconBlue {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.optionIconIndigo {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+}
+
+.optionTitle {
+  font-size: 1.04rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.optionDescription {
+  min-height: 72px;
+  font-size: 0.94rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 44px !important;
+  border-radius: 14px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22) !important;
+}
+
+.primaryButton:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+}
+
+.secondaryButton {
+  color: #4338ca !important;
+  border-color: rgba(99, 102, 241, 0.28) !important;
+  background: rgba(238, 242, 255, 0.45) !important;
+}
+
+.secondaryButton:hover {
+  border-color: rgba(79, 70, 229, 0.38) !important;
+  background: rgba(224, 231, 255, 0.72) !important;
+}
+
+@media (max-width: 720px) {
+  .dialogTitleRow {
+    flex-direction: column;
+  }
+
+  .courseMetaCard,
+  .optionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .optionDescription {
+    min-height: auto;
+  }
+}

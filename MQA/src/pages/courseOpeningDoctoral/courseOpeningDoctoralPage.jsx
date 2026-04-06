@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Box,
   Button,
   Checkbox,
+  Chip,
   FormControlLabel,
   MenuItem,
   Radio,
@@ -12,7 +14,10 @@ import {
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import SubjectSelectorModal from '../../components/courseOpeningBachelor/subjectSelectorModal'
 import styles from './courseOpeningDoctoralPage.module.css'
 
@@ -32,13 +37,38 @@ const responsibleOptions = [
   'อาจารย์ วรเมธ ศิริสุข',
 ]
 
-const initialResponsiblePeople = [
-  { id: 1, name: '', signedDate: '' },
-  { id: 2, name: '', signedDate: '' },
-  { id: 3, name: '', signedDate: '' },
-]
-
 const yearLevelOptions = ['1', '2', '3', '4', '5', '6']
+
+const defaultGeneralForm = {
+  submissionRound: '1',
+  semester: '1',
+  academicYear: '2568',
+  curriculumName: '',
+  majorName: 'วิทยาการคอมพิวเตอร์',
+  doctoralFormType: '1.1',
+  campus: 'chakrabongse',
+}
+
+function createDefaultResponsiblePeople() {
+  return [
+    { id: 1, name: '', signedDate: '' },
+    { id: 2, name: '', signedDate: '' },
+    { id: 3, name: '', signedDate: '' },
+  ]
+}
+
+function createDefaultApprovalForm() {
+  return {
+    responsiblePeople: createDefaultResponsiblePeople(),
+    headName: 'อาจารย์ ปวีรา เครือโสม',
+    headDate: '',
+    deputyDeanName: 'ผู้ช่วยศาสตราจารย์ อภิรัตน์ ใจผ่อง',
+    deputyDeanDate: '',
+    deanName: 'นาย สมเกตุ วรัทพัฒน์ชัย',
+    deanDate: '',
+    isConfirmed: false,
+  }
+}
 
 function createEmptySubjectRow() {
   return {
@@ -65,35 +95,139 @@ function createYearBlock(order = 1) {
   }
 }
 
+function normalizeSubjectRow(row = {}) {
+  return {
+    ...createEmptySubjectRow(),
+    ...row,
+    id: row.id ?? Date.now() + Math.random(),
+  }
+}
+
+function normalizeYearBlock(block = {}, order = 1) {
+  return {
+    ...createYearBlock(order),
+    ...block,
+    id: block.id ?? Date.now() + Math.random(),
+    yearLevel: String(block.yearLevel ?? order),
+    subjectRows:
+      Array.isArray(block.subjectRows) && block.subjectRows.length
+        ? block.subjectRows.map((row) => normalizeSubjectRow(row))
+        : [createEmptySubjectRow()],
+  }
+}
+
+function normalizeResponsiblePeople(responsiblePeople) {
+  if (!Array.isArray(responsiblePeople) || !responsiblePeople.length) {
+    return createDefaultResponsiblePeople()
+  }
+
+  return responsiblePeople.map((person, index) => ({
+    id: person.id ?? Date.now() + Math.random() + index,
+    name: person.name ?? '',
+    signedDate: person.signedDate ?? '',
+  }))
+}
+
+function buildInitialPageData(requestData) {
+  const documentData = requestData?.documentData || {}
+  const defaultApprovalForm = createDefaultApprovalForm()
+  const nextGeneralForm = {
+    ...defaultGeneralForm,
+    ...(documentData.generalForm || {}),
+  }
+
+  nextGeneralForm.doctoralFormType =
+    documentData.generalForm?.doctoralFormType ||
+    documentData.generalForm?.formType ||
+    nextGeneralForm.doctoralFormType
+
+  return {
+    generalForm: nextGeneralForm,
+    yearBlocks:
+      Array.isArray(documentData.yearBlocks) && documentData.yearBlocks.length
+        ? documentData.yearBlocks.map((block, index) =>
+            normalizeYearBlock(block, index + 1)
+          )
+        : [createYearBlock(1)],
+    approvalForm: {
+      ...defaultApprovalForm,
+      ...(documentData.approvalForm || {}),
+      responsiblePeople: normalizeResponsiblePeople(
+        documentData.approvalForm?.responsiblePeople
+      ),
+    },
+  }
+}
+
+function getStatusConfig(status) {
+  if (status === 'draft') {
+    return {
+      label: 'บันทึกแล้ว ยังไม่ส่ง',
+      className: styles.statusChipDraft,
+    }
+  }
+
+  if (status === 'pendingApproval') {
+    return {
+      label: 'ส่งเอกสารแล้วกำลังรออนุมัติ',
+      className: styles.statusChipPendingApproval,
+    }
+  }
+
+  if (status === 'rejected') {
+    return {
+      label: 'ไม่อนุมัติ',
+      className: styles.statusChipRejected,
+    }
+  }
+
+  return {
+    label: '-',
+    className: '',
+  }
+}
+
 function CourseOpeningDoctoralPage() {
-  const [generalForm, setGeneralForm] = useState({
-    submissionRound: '1',
-    semester: '1',
-    academicYear: '2568',
-    curriculumName: '',
-    majorName: 'วิทยาการคอมพิวเตอร์',
-    doctoralFormType: '1.1',
-    campus: 'chakrabongse',
-  })
+  const location = useLocation()
+  const requestData = location.state?.requestData || null
+  const initialPageData = useMemo(
+    () => buildInitialPageData(requestData),
+    [requestData]
+  )
 
-  const [yearBlocks, setYearBlocks] = useState([createYearBlock(1)])
-
-  const [approvalForm, setApprovalForm] = useState({
-    responsiblePeople: initialResponsiblePeople,
-    headName: 'อาจารย์ ปวีรา เครือโสม',
-    headDate: '',
-    deputyDeanName: 'ผู้ช่วยศาสตราจารย์ อภิรัตน์ ใจผ่อง',
-    deputyDeanDate: '',
-    deanName: 'นาย สมเกตุ วรัทพัฒน์ชัย',
-    deanDate: '',
-    isConfirmed: false,
-  })
-
+  const [pageMode, setPageMode] = useState(requestData ? 'view' : 'create')
+  const [generalForm, setGeneralForm] = useState(initialPageData.generalForm)
+  const [yearBlocks, setYearBlocks] = useState(initialPageData.yearBlocks)
+  const [approvalForm, setApprovalForm] = useState(initialPageData.approvalForm)
   const [subjectSelectorState, setSubjectSelectorState] = useState({
     isOpen: false,
     blockId: null,
     rowId: null,
   })
+
+  const isViewMode = pageMode === 'view'
+  const isEditMode = pageMode === 'edit'
+  const isCreateMode = pageMode === 'create'
+  const isFormDisabled = isViewMode
+
+  const currentRequestStatus = requestData?.status || 'draft'
+  const statusConfig = getStatusConfig(currentRequestStatus)
+  const canEditCurrentDocument =
+    !requestData ||
+    currentRequestStatus === 'draft' ||
+    currentRequestStatus === 'rejected'
+
+  const resetFormStatesFromRequest = () => {
+    const nextPageData = buildInitialPageData(requestData)
+    setGeneralForm(nextPageData.generalForm)
+    setYearBlocks(nextPageData.yearBlocks)
+    setApprovalForm(nextPageData.approvalForm)
+    setSubjectSelectorState({
+      isOpen: false,
+      blockId: null,
+      rowId: null,
+    })
+  }
 
   const handleChangeGeneralForm = (event) => {
     const { name, value } = event.target
@@ -222,6 +356,10 @@ function CourseOpeningDoctoralPage() {
   }
 
   const openSubjectSelector = (blockId, rowId) => {
+    if (isFormDisabled) {
+      return
+    }
+
     setSubjectSelectorState({
       isOpen: true,
       blockId,
@@ -322,6 +460,25 @@ function CourseOpeningDoctoralPage() {
     window.alert('ตอนนี้เป็น mock page ระดับปริญญาเอก ยังไม่ได้เชื่อม API')
   }
 
+  const handleStartEdit = () => {
+    if (!canEditCurrentDocument) {
+      return
+    }
+
+    setPageMode('edit')
+  }
+
+  const handleCancelEdit = () => {
+    resetFormStatesFromRequest()
+    setPageMode('view')
+  }
+
+  const handleSaveEditedDocument = () => {
+    closeSubjectSelector()
+    setPageMode('view')
+    window.alert('บันทึกการแก้ไขเรียบร้อย (mock page ยังไม่ได้เชื่อม API)')
+  }
+
   return (
     <Box className={styles.page}>
       <Box className={styles.backgroundGlowTop} />
@@ -329,12 +486,78 @@ function CourseOpeningDoctoralPage() {
 
       <Box className={styles.container}>
         <Box className={styles.pageHeader}>
-          <Typography className={styles.pageTitle}>แบบเปิดรายวิชาประจำภาคการศึกษา (ระดับปริญญาเอก)</Typography>
-          <Typography className={styles.pageDescription}>
-            หน้าสำหรับบันทึกคำขอเปิดรายวิชาในสาขา ระดับปริญญาเอก
-            โดยใช้ดีไซน์เดียวกับหน้าปริญญาตรีและปริญญาโท
-            แล้วปรับเฉพาะข้อมูลที่แตกต่าง
+          <Typography className={styles.pageTitle}>
+            {requestData
+              ? 'ดูรายละเอียดการเปิดรายวิชา (ระดับปริญญาเอก)'
+              : 'แบบเปิดรายวิชาประจำภาคการศึกษา (ระดับปริญญาเอก)'}
           </Typography>
+
+          <Typography className={styles.pageDescription}>
+            {requestData
+              ? 'หน้านี้ใช้สำหรับตรวจสอบรายละเอียดเอกสารที่บันทึกไว้ก่อนส่งจริง โดยระบบจะเปิดแบบฟอร์มเดิมทั้งหน้าขึ้นมาในโหมดดูอย่างเดียว และสามารถกดแก้ไขเพื่อปลดล็อกฟอร์มได้'
+              : 'หน้าสำหรับบันทึกคำขอเปิดรายวิชาในสาขา ระดับปริญญาเอก โดยใช้ดีไซน์เดียวกับหน้าปริญญาตรีและปริญญาโท แล้วปรับเฉพาะข้อมูลที่แตกต่าง'}
+          </Typography>
+        </Box>
+
+        {requestData && (
+          <Box className={styles.modeCard}>
+            <Box className={styles.modeCardTop}>
+              <Box className={styles.modeTextBlock}>
+                <Typography className={styles.modeEyebrow}>
+                  {isViewMode ? 'โหมดดูรายละเอียดเอกสาร' : 'โหมดแก้ไขเอกสาร'}
+                </Typography>
+
+                <Typography className={styles.modeTitle}>
+                  {generalForm.curriculumName || 'ยังไม่ได้ระบุชื่อหลักสูตร'} • สาขา{' '}
+                  {generalForm.majorName}
+                </Typography>
+
+                <Typography className={styles.modeDescription}>
+                  {isViewMode
+                    ? 'ในโหมดนี้ข้อมูลทั้งหมดจะถูกล็อกไว้เพื่อให้ตรวจสอบเอกสารได้อย่างเดียว หากต้องการแก้ไขให้กดปุ่มแก้ไขที่ด้านล่างของหน้า'
+                    : 'กำลังแก้ไขเอกสารฉบับร่างในหน้าเดิม ข้อมูลทุกส่วนจะถูกปลดล็อกชั่วคราวเพื่อให้แก้ไขและบันทึกได้'}
+                </Typography>
+              </Box>
+
+              <Box className={styles.modeChipRow}>
+                <Chip
+                  label={`รหัสคำขอ ${requestData.id}`}
+                  className={styles.requestIdChip}
+                />
+                <Chip
+                  label={statusConfig.label}
+                  className={statusConfig.className}
+                />
+              </Box>
+            </Box>
+
+            {!canEditCurrentDocument && (
+              <Typography className={styles.lockedHint}>
+                เอกสารนี้ถูกส่งแล้วและกำลังรออนุมัติ จึงยังไม่สามารถแก้ไขได้จนกว่าจะมีผลไม่อนุมัติ
+              </Typography>
+            )}
+          </Box>
+        )}
+
+        <Box className={styles.viewModeHintBox}>
+          <VisibilityRoundedIcon className={styles.viewModeHintIcon} />
+          <Box>
+            <Typography className={styles.viewModeHintTitle}>
+              {isViewMode
+                ? 'กำลังแสดงเอกสารในโหมดดูอย่างเดียว'
+                : isEditMode
+                ? 'กำลังแสดงเอกสารในโหมดแก้ไข'
+                : 'กำลังแสดงเอกสารในโหมดสร้างรายการใหม่'}
+            </Typography>
+
+            <Typography className={styles.viewModeHintDescription}>
+              {isViewMode
+                ? 'ทุก field และปุ่มภายในเอกสารถูก disabled ไว้ทั้งหมด เพื่อให้ตรวจสอบข้อมูลได้ก่อนตัดสินใจแก้ไข'
+                : isEditMode
+                ? 'สามารถปรับข้อมูลในแบบฟอร์มได้ทั้งหมด เมื่อแก้ไขเสร็จแล้วให้กดบันทึกการแก้ไขที่ด้านล่างของหน้า'
+                : 'โหมดนี้ใช้สำหรับกรอกแบบฟอร์มใหม่ตาม flow เดิมของหน้าเปิดรายวิชา'}
+            </Typography>
+          </Box>
         </Box>
 
         <Box className={styles.sectionCard}>
@@ -347,6 +570,7 @@ function CourseOpeningDoctoralPage() {
               value={generalForm.submissionRound}
               onChange={handleChangeGeneralForm}
               fullWidth
+              disabled={isFormDisabled}
             />
 
             <TextField
@@ -356,6 +580,7 @@ function CourseOpeningDoctoralPage() {
               value={generalForm.semester}
               onChange={handleChangeGeneralForm}
               fullWidth
+              disabled={isFormDisabled}
             >
               <MenuItem value="1">ภาค 1</MenuItem>
               <MenuItem value="2">ภาค 2</MenuItem>
@@ -368,6 +593,7 @@ function CourseOpeningDoctoralPage() {
               value={generalForm.academicYear}
               onChange={handleChangeGeneralForm}
               fullWidth
+              disabled={isFormDisabled}
             />
           </Box>
 
@@ -379,6 +605,7 @@ function CourseOpeningDoctoralPage() {
               onChange={handleChangeGeneralForm}
               placeholder="เช่น วิทยาศาสตรดุษฎีบัณฑิต"
               fullWidth
+              disabled={isFormDisabled}
             />
 
             <Box className={styles.majorFieldWrapper}>
@@ -388,9 +615,14 @@ function CourseOpeningDoctoralPage() {
                 value={generalForm.majorName}
                 onChange={handleChangeGeneralForm}
                 fullWidth
+                disabled={isFormDisabled}
               />
 
-              <Button variant="text" className={styles.inlineEditButton}>
+              <Button
+                variant="text"
+                className={styles.inlineEditButton}
+                disabled
+              >
                 แก้ไข
               </Button>
             </Box>
@@ -415,6 +647,7 @@ function CourseOpeningDoctoralPage() {
                     value={item.value}
                     control={<Radio />}
                     label={item.label}
+                    disabled={isFormDisabled}
                   />
                 ))}
               </RadioGroup>
@@ -438,6 +671,7 @@ function CourseOpeningDoctoralPage() {
                     value={item.value}
                     control={<Radio />}
                     label={item.label}
+                    disabled={isFormDisabled}
                   />
                 ))}
               </RadioGroup>
@@ -456,6 +690,7 @@ function CourseOpeningDoctoralPage() {
               startIcon={<AddRoundedIcon />}
               className={styles.secondaryButton}
               onClick={handleAddYearBlock}
+              disabled={isFormDisabled}
             >
               เพิ่มตาราง (ชั้นปี)
             </Button>
@@ -489,6 +724,7 @@ function CourseOpeningDoctoralPage() {
                       }
                       size="small"
                       className={styles.yearLevelSelect}
+                      disabled={isFormDisabled}
                     >
                       {yearLevelOptions.map((yearLevel) => (
                         <MenuItem key={yearLevel} value={yearLevel}>
@@ -503,6 +739,7 @@ function CourseOpeningDoctoralPage() {
                       startIcon={<DeleteOutlineRoundedIcon />}
                       className={styles.deleteYearBlockButton}
                       onClick={() => handleDeleteYearBlock(block.id)}
+                      disabled={isFormDisabled}
                     >
                       ลบตารางนี้
                     </Button>
@@ -522,6 +759,7 @@ function CourseOpeningDoctoralPage() {
                       )
                     }
                     fullWidth
+                    disabled={isFormDisabled}
                   >
                     <MenuItem value="1">ภาค 1</MenuItem>
                     <MenuItem value="2">ภาค 2</MenuItem>
@@ -539,11 +777,12 @@ function CourseOpeningDoctoralPage() {
                       )
                     }
                     fullWidth
+                    disabled={isFormDisabled}
                   />
                 </Box>
 
                 <Box className={styles.tableSection}>
-                <Box className={styles.tableHeaderRow}>
+                  <Box className={styles.tableHeaderRow}>
                     <Box className={`${styles.tableHeaderCell} ${styles.colIndex}`}>#</Box>
                     <Box className={`${styles.tableHeaderCell} ${styles.colCode}`}>รหัสวิชา</Box>
                     <Box className={`${styles.tableHeaderCell} ${styles.colName}`}>ชื่อรายวิชา</Box>
@@ -554,7 +793,7 @@ function CourseOpeningDoctoralPage() {
                     <Box className={`${styles.tableHeaderCell} ${styles.colTrack}`}>รายวิชา (มนุษยศาสตร์และสังคมศาสตร์)</Box>
                     <Box className={`${styles.tableHeaderCell} ${styles.colNote}`}>หมายเหตุ</Box>
                     <Box className={`${styles.tableHeaderCell} ${styles.colAction}`}>จัดการ</Box>
-                    </Box>
+                  </Box>
 
                   <Box className={styles.tableBody}>
                     {block.subjectRows.map((row, rowIndex) => (
@@ -585,6 +824,7 @@ function CourseOpeningDoctoralPage() {
                             size="small"
                             fullWidth
                             className={styles.compactField}
+                            disabled={isFormDisabled}
                           />
                         </Box>
 
@@ -597,6 +837,7 @@ function CourseOpeningDoctoralPage() {
                               className={styles.subjectPickerButton}
                               onClick={() => openSubjectSelector(block.id, row.id)}
                               fullWidth
+                              disabled={isFormDisabled}
                             >
                               {row.courseName ? (
                                 <span className={styles.subjectPickerText}>
@@ -622,6 +863,7 @@ function CourseOpeningDoctoralPage() {
                                     )
                                   }
                                   size="small"
+                                  disabled={isFormDisabled}
                                 />
                               }
                               label={
@@ -648,6 +890,7 @@ function CourseOpeningDoctoralPage() {
                             size="small"
                             fullWidth
                             className={styles.compactField}
+                            disabled={isFormDisabled}
                             inputProps={{ style: { textAlign: 'center' } }}
                           />
                         </Box>
@@ -667,6 +910,7 @@ function CourseOpeningDoctoralPage() {
                             size="small"
                             fullWidth
                             className={styles.compactField}
+                            disabled={isFormDisabled}
                             inputProps={{ style: { textAlign: 'center' } }}
                           />
                         </Box>
@@ -686,6 +930,7 @@ function CourseOpeningDoctoralPage() {
                             size="small"
                             fullWidth
                             className={styles.compactField}
+                            disabled={isFormDisabled}
                             inputProps={{ style: { textAlign: 'center' } }}
                           />
                         </Box>
@@ -704,6 +949,7 @@ function CourseOpeningDoctoralPage() {
                             }
                             size="small"
                             className={styles.trackCheckbox}
+                            disabled={isFormDisabled}
                           />
                         </Box>
 
@@ -721,6 +967,7 @@ function CourseOpeningDoctoralPage() {
                             }
                             size="small"
                             className={styles.trackCheckbox}
+                            disabled={isFormDisabled}
                           />
                         </Box>
 
@@ -739,6 +986,7 @@ function CourseOpeningDoctoralPage() {
                             size="small"
                             fullWidth
                             className={styles.compactField}
+                            disabled={isFormDisabled}
                           />
                         </Box>
 
@@ -751,6 +999,7 @@ function CourseOpeningDoctoralPage() {
                             size="small"
                             className={styles.deleteRowButton}
                             onClick={() => handleDeleteSubjectRow(block.id, row.id)}
+                            disabled={isFormDisabled}
                           >
                             <DeleteOutlineRoundedIcon fontSize="small" />
                           </Button>
@@ -766,6 +1015,7 @@ function CourseOpeningDoctoralPage() {
                     startIcon={<AddRoundedIcon />}
                     className={styles.primaryButton}
                     onClick={() => handleAddSubjectRow(block.id)}
+                    disabled={isFormDisabled}
                   >
                     เพิ่มรายวิชา
                   </Button>
@@ -803,6 +1053,7 @@ function CourseOpeningDoctoralPage() {
                     )
                   }
                   fullWidth
+                  disabled={isFormDisabled}
                 >
                   {responsibleOptions.map((item) => (
                     <MenuItem key={item} value={item}>
@@ -822,6 +1073,7 @@ function CourseOpeningDoctoralPage() {
                     )
                   }
                   fullWidth
+                  disabled={isFormDisabled}
                   InputLabelProps={{ shrink: true }}
                 />
 
@@ -833,7 +1085,10 @@ function CourseOpeningDoctoralPage() {
                     color="error"
                     className={styles.removeResponsibleButton}
                     onClick={() => handleRemoveResponsiblePerson(person.id)}
-                    disabled={approvalForm.responsiblePeople.length <= 3}
+                    disabled={
+                      isFormDisabled ||
+                      approvalForm.responsiblePeople.length <= 3
+                    }
                   >
                     ลบ
                   </Button>
@@ -848,75 +1103,134 @@ function CourseOpeningDoctoralPage() {
               startIcon={<AddRoundedIcon />}
               className={styles.primaryButton}
               onClick={handleAddResponsiblePerson}
+              disabled={isFormDisabled}
             >
               เพิ่มผู้รับผิดชอบ
             </Button>
           </Box>
 
-         <Box className={styles.signerGrid}>
+          <Box className={styles.signerGrid}>
             {[
-                {
+              {
                 title: 'หัวหน้าสาขาวิชา',
                 nameKey: 'headName',
                 dateKey: 'headDate',
-                },
-                {
+              },
+              {
                 title: 'รองคณบดี',
                 nameKey: 'deputyDeanName',
                 dateKey: 'deputyDeanDate',
-                },
-                {
+              },
+              {
                 title: 'คณบดี',
                 nameKey: 'deanName',
                 dateKey: 'deanDate',
-                },
+              },
             ].map(({ title, nameKey, dateKey }) => (
-                <Box key={nameKey} className={styles.signerCard}>
+              <Box key={nameKey} className={styles.signerCard}>
                 <Typography className={styles.signerTitle}>{title}</Typography>
 
                 <TextField
-                    name={nameKey}
-                    value={approvalForm[nameKey]}
-                    onChange={handleChangeApprovalField}
-                    fullWidth
+                  name={nameKey}
+                  value={approvalForm[nameKey]}
+                  onChange={handleChangeApprovalField}
+                  fullWidth
+                  disabled={isFormDisabled}
                 />
 
                 <TextField
-                    type="date"
-                    name={dateKey}
-                    value={approvalForm[dateKey]}
-                    onChange={handleChangeApprovalField}
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
+                  type="date"
+                  name={dateKey}
+                  value={approvalForm[dateKey]}
+                  onChange={handleChangeApprovalField}
+                  fullWidth
+                  disabled={isFormDisabled}
+                  InputLabelProps={{ shrink: true }}
                 />
-                </Box>
+              </Box>
             ))}
+          </Box>
+
+          {isCreateMode && (
+            <>
+              <Box className={styles.confirmBox}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="isConfirmed"
+                      checked={approvalForm.isConfirmed}
+                      onChange={handleChangeApprovalField}
+                    />
+                  }
+                  label="ข้าพเจ้าขอรับรองว่าได้ตรวจสอบข้อมูลทั้งหมดแล้ว และข้อมูลหรือเอกสารมีความถูกต้องครบถ้วน"
+                />
+              </Box>
+
+              <Box className={styles.submitRow}>
+                <Button
+                  variant="contained"
+                  className={styles.submitButton}
+                  disabled={!approvalForm.isConfirmed}
+                  onClick={handleSubmitRequest}
+                >
+                  ส่งคำร้องขอเปิดรายวิชา (ปริญญาเอก)
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+
+        {requestData && (
+          <Box className={styles.requestActionCard}>
+            <Box className={styles.requestActionInfo}>
+              <Typography className={styles.requestActionTitle}>
+                {isViewMode
+                  ? 'ตรวจสอบเอกสารเรียบร้อยแล้วหรือยัง'
+                  : 'แก้ไขข้อมูลเรียบร้อยแล้วหรือยัง'}
+              </Typography>
+
+              <Typography className={styles.requestActionDescription}>
+                {isViewMode
+                  ? 'หากต้องการแก้ไขข้อมูล ให้กดปุ่มแก้ไขเอกสาร ระบบจะปลดล็อก field ทั้งหมดของเอกสารฉบับนี้ในหน้าเดิม'
+                  : 'เมื่อบันทึกการแก้ไขแล้ว เอกสารจะกลับไปอยู่ในโหมดดูอย่างเดียวอีกครั้ง เพื่อใช้ตรวจสอบก่อนย้อนกลับไปหน้ารายการ'}
+              </Typography>
             </Box>
 
-          <Box className={styles.confirmBox}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  name="isConfirmed"
-                  checked={approvalForm.isConfirmed}
-                  onChange={handleChangeApprovalField}
-                />
-              }
-              label="ข้าพเจ้าขอรับรองว่าได้ตรวจสอบข้อมูลทั้งหมดแล้ว และข้อมูลหรือเอกสารมีความถูกต้องครบถ้วน"
-            />
-          </Box>
+            <Box className={styles.requestActionButtons}>
+              {isViewMode && canEditCurrentDocument && (
+                <Button
+                  variant="contained"
+                  startIcon={<EditRoundedIcon />}
+                  className={styles.editButton}
+                  onClick={handleStartEdit}
+                >
+                  แก้ไขเอกสาร
+                </Button>
+              )}
 
-          <Box className={styles.submitRow}>
-            <Button
-              variant="contained"
-              className={styles.submitButton}
-              disabled={!approvalForm.isConfirmed}
-              onClick={handleSubmitRequest}
-            >
-              ส่งคำร้องขอเปิดรายวิชา (ปริญญาเอก)
-            </Button>
+              {isEditMode && (
+                <>
+                  <Button
+                    variant="outlined"
+                    className={styles.cancelEditButton}
+                    onClick={handleCancelEdit}
+                  >
+                    ยกเลิก
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveRoundedIcon />}
+                    className={styles.saveButton}
+                    onClick={handleSaveEditedDocument}
+                  >
+                    บันทึกการแก้ไข
+                  </Button>
+                </>
+              )}
+            </Box>
           </Box>
-        </Box>
+        )}
       </Box>
 
       <SubjectSelectorModal
@@ -928,4 +1242,5 @@ function CourseOpeningDoctoralPage() {
     </Box>
   )
 }
+
 export default CourseOpeningDoctoralPage

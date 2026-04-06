@@ -1,11 +1,13 @@
 .navbar {
+  position: relative;
   width: 100%;
   min-height: 74px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  padding: 12px 22px;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding: 12px 22px 16px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(148, 163, 184, 0.14);
@@ -14,6 +16,11 @@
     0 3px 10px rgba(15, 23, 42, 0.03),
     inset 0 1px 0 rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(10px);
+  transition: padding-bottom 0.2s ease;
+}
+
+.navbarDropdownOpen {
+  padding-bottom: 220px;
 }
 
 .leftSection {
@@ -21,7 +28,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  flex: 1;
+  flex: 1 1 420px;
 }
 
 .logoBox {
@@ -71,11 +78,15 @@
 }
 
 .centerSection {
+  order: 3;
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .navButton {
@@ -118,13 +129,98 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
+.dropdownWrapper {
+  position: relative;
+}
+
+.dropdownTrigger {
+  cursor: pointer;
+  font-family: inherit;
+  outline: none;
+  gap: 8px;
+}
+
+.triggerArrow {
+  font-size: 0.82rem;
+  transition: transform 0.2s ease;
+}
+
+.triggerArrowOpen {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 260px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.1),
+    0 4px 12px rgba(15, 23, 42, 0.04);
+  z-index: 1000;
+}
+
+.dropdownTitle {
+  margin: 0 0 10px 0 !important;
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  color: #0f172a !important;
+}
+
+.dropdownList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #475569;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.dropdownItem:hover {
+  background: #eff6ff;
+  border-color: rgba(59, 130, 246, 0.22);
+  color: #1d4ed8;
+  transform: translateX(2px);
+}
+
+.dropdownItemActive {
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #1d4ed8;
+  box-shadow:
+    0 8px 18px rgba(59, 130, 246, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
 .rightSection {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  flex: 0 0 auto;
 }
 
 .userName {
@@ -145,28 +241,43 @@
   white-space: nowrap;
 }
 
+@media (max-width: 1024px) {
+  .navbar {
+    padding-bottom: 12px;
+  }
+
+  .navbarDropdownOpen {
+    padding-bottom: 12px;
+  }
+
+  .leftSection,
+  .centerSection,
+  .rightSection {
+    width: 100%;
+  }
+
+  .rightSection {
+    align-items: flex-start;
+  }
+
+  .dropdownMenu {
+    position: static;
+    margin-top: 10px;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .navbar {
     min-height: auto;
     padding: 14px 18px;
     border-radius: 18px;
-    flex-direction: column;
-    align-items: flex-start;
     gap: 14px;
   }
 
-  .leftSection {
-    width: 100%;
-  }
-
   .centerSection {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .rightSection {
-    width: 100%;
-    align-items: flex-start;
+    padding-top: 12px;
   }
 
   .systemTitle {
