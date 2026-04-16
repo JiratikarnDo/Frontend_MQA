@@ -29,7 +29,9 @@ import CourseManagementPage from './pages/courseManagement/courseManagementPage'
 {/* มคอ */}
 import MyAssignedCoursesPage from './pages/myAssignedCourses/myAssignedCoursesPage'
 import MqaOverviewPage from './pages/mqaOverview/mqaOverviewPage'
-
+{/* คณะบดี */}
+import DeanMajorSelectPage from './pages/dean/deanMajorSelect/deanMajorSelectPage'
+import DeanCourseOpeningReviewListPage from './pages/dean/deanCourseOpeningReviewList/deanCourseOpeningReviewListPage'
 function App() {
   return (
     <Routes>
@@ -63,6 +65,9 @@ function App() {
         {/* มคอ */}
         <Route path="/myAssignedCourses" element={<MyAssignedCoursesPage />} />
         <Route path="/mqaOverview" element={<MqaOverviewPage />} />
+        {/* คณะบดี */}
+        <Route path="/deanMajorSelect" element={<DeanMajorSelectPage />} />
+        <Route path="/deanCourseOpeningReviewList" element={<DeanCourseOpeningReviewListPage />} />
       </Route>
     </Routes>
   )

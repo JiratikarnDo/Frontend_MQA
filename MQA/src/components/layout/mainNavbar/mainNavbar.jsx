@@ -135,6 +135,15 @@ function MainNavbar({
         >
           หน้าแรก
         </NavLink>
+
+        <NavLink
+          to="/deanMajorSelect"
+          className={({ isActive }) =>
+            `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`
+          }
+        >
+          พิจารณาการเปิดรายวิชา
+        </NavLink>
         <NavLink
           to="/myAssignedCourses"
           className={({ isActive }) =>
