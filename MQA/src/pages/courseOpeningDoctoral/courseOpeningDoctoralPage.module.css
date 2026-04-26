@@ -1,0 +1,797 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, #f5fbff 0%, #eef7ff 100%);
+}
+
+.backgroundGlowTop {
+  position: absolute;
+  top: -120px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.backgroundGlowBottom {
+  position: absolute;
+  right: -120px;
+  bottom: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.pageTitle {
+  margin-bottom: 8px !important;
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.pageDescription {
+  max-width: 900px;
+  font-size: 1rem !important;
+  line-height: 1.7 !important;
+  color: #475569 !important;
+}
+
+.modeCard {
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.96) 100%);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+}
+
+.modeCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.modeTextBlock {
+  flex: 1;
+  min-width: 0;
+}
+
+.modeEyebrow {
+  margin-bottom: 8px !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #2563eb !important;
+}
+
+.modeTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.08rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.modeDescription {
+  max-width: 860px;
+  line-height: 1.7 !important;
+  color: #475569 !important;
+}
+
+.modeChipRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.requestIdChip {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.18) !important;
+}
+
+.lockedHint {
+  margin-top: 14px !important;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(254, 242, 242, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+  line-height: 1.7 !important;
+  color: #991b1b !important;
+}
+
+.viewModeHintBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(191, 219, 254, 0.8);
+  background: rgba(248, 251, 255, 0.98);
+}
+
+.viewModeHintIcon {
+  margin-top: 2px;
+  color: #2563eb;
+}
+
+.viewModeHintTitle {
+  margin-bottom: 4px !important;
+  font-size: 0.98rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.viewModeHintDescription {
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.sectionCard {
+  margin-bottom: 24px;
+  padding: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.sectionTitle {
+  margin-bottom: 20px !important;
+  font-size: 1.2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.formGridThree {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.formGridTwo {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.majorFieldWrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.inlineEditButton {
+  min-width: 80px !important;
+  height: 44px !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.formOptionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.optionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.optionGroupTitle {
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.optionRadioRow {
+  gap: 12px;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.secondaryButton {
+  border-radius: 14px !important;
+  padding: 10px 16px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.yearBlockList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.yearBlock {
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.yearBlockHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 22px;
+  background: linear-gradient(180deg, #f0f7ff 0%, #e6f0fb 100%);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.12);
+}
+
+.yearBlockHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.yearBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  width: fit-content;
+  margin-bottom: 4px;
+}
+
+.yearBlockHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.yearBlockTitle {
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.yearBlockSubtitle {
+  font-size: 0.88rem !important;
+  line-height: 1.6 !important;
+  color: #64748b !important;
+}
+
+.yearLevelSelect {
+  min-width: 140px;
+}
+
+.yearLevelSelect :global(.MuiOutlinedInput-root) {
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.deleteYearBlockButton {
+  border-radius: 12px !important;
+  padding: 8px 14px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.yearBlockForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px 22px 14px;
+}
+
+.tableSection {
+  margin: 0 22px 18px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #ffffff;
+}
+
+.colIndex {
+  flex: 0 0 90px;
+  min-width: 90px;
+  max-width: 90px;
+}
+
+.colCode {
+  flex: 0 0 150px;
+  min-width: 150px;
+  max-width: 150px;
+}
+
+.colName {
+  flex: 0 0 320px;
+  min-width: 320px;
+  max-width: 320px;
+}
+
+.colCredits {
+  flex: 0 0 140px;
+  min-width: 140px;
+  max-width: 140px;
+}
+
+.colGroup {
+  flex: 0 0 150px;
+  min-width: 150px;
+  max-width: 150px;
+}
+
+.colStudents {
+  flex: 0 0 230px;
+  min-width: 230px;
+  max-width: 230px;
+}
+
+.colTrack {
+  flex: 0 0 280px;
+  min-width: 280px;
+  max-width: 280px;
+}
+
+.colNote {
+  flex: 0 0 180px;
+  min-width: 180px;
+  max-width: 180px;
+}
+
+.colAction {
+  flex: 0 0 68px;
+  min-width: 68px;
+  max-width: 68px;
+}
+
+.tableHeaderRow {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(180deg, #f0f7ff 0%, #e8f1fb 100%);
+  border-bottom: 1.5px solid #bfdbfe;
+  min-width: 2208px;
+}
+
+.tableHeaderCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e40af;
+  text-align: center;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: unset;
+  border-right: 1px solid #dbeafe;
+}
+
+.tableHeaderCell:last-child {
+  border-right: none;
+}
+
+.tableBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.tableRow {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #e8f0fb;
+  background: #ffffff;
+  transition: background 0.15s;
+  min-width: 2208px;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableRow:hover {
+  background: #f5f9ff;
+}
+
+.tableRowAlt {
+  background: #f8fbff;
+}
+
+.tableRowAlt:hover {
+  background: #eef5ff;
+}
+
+.tableCell {
+  padding: 8px 10px;
+  border-right: 1px solid #e8f0fb;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tableCell:last-child {
+  border-right: none;
+}
+
+.indexCell {
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #2563eb;
+  background: #f0f7ff;
+}
+
+.centerCell {
+  justify-content: center;
+}
+
+.compactField :global(.MuiOutlinedInput-root) {
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+
+.compactField :global(.MuiOutlinedInput-input) {
+  padding: 7px 10px;
+}
+
+.courseNameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.subjectPickerButton {
+  border-radius: 10px !important;
+  font-size: 0.84rem !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  justify-content: flex-start !important;
+  padding: 6px 10px !important;
+  min-height: 36px !important;
+  overflow: hidden;
+}
+
+.subjectPickerText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  color: #0f172a;
+  font-size: 0.84rem;
+}
+
+.subjectPickerPlaceholder {
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
+.freeElectiveToggle {
+  margin: 0 !important;
+}
+
+.freeElectiveLabel {
+  font-size: 0.78rem !important;
+  color: #475569;
+}
+
+.trackCheckbox {
+  padding: 4px !important;
+}
+
+.deleteRowButton {
+  min-width: 32px !important;
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  border-radius: 8px !important;
+}
+
+.subjectActionRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 22px 20px;
+}
+
+.rowCount {
+  font-size: 0.88rem !important;
+  color: #64748b !important;
+  font-weight: 600 !important;
+}
+
+.primaryButton {
+  border-radius: 14px !important;
+  padding: 10px 18px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2) !important;
+}
+
+.subSectionTitle {
+  margin-bottom: 16px !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.responsibleList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.responsibleItem {
+  display: grid;
+  grid-template-columns: 1.4fr 220px 220px;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.responsibleItemActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.signaturePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  border: 1px dashed rgba(148, 163, 184, 0.55);
+  border-radius: 14px;
+  background: #f8fbff;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.removeResponsibleButton {
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.addResponsibleRow {
+  margin-top: 18px;
+  margin-bottom: 24px;
+}
+
+.signerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.signerCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.signerTitle {
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.confirmBox {
+  padding: 16px 18px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 18px;
+  background: rgba(255, 251, 235, 0.95);
+}
+
+.submitRow {
+  display: flex;
+  justify-content: center;
+}
+
+.submitButton {
+  min-width: 260px !important;
+  border-radius: 14px !important;
+  padding: 12px 22px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22) !important;
+}
+
+.requestActionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 26px;
+  border-radius: 26px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.requestActionInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.requestActionTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.08rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.requestActionDescription {
+  max-width: 800px;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.requestActionButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.editButton,
+.saveButton,
+.cancelEditButton {
+  border-radius: 14px !important;
+  padding: 10px 18px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.saveButton,
+.editButton {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: none !important;
+}
+
+.statusChipDraft,
+.statusChipPendingApproval,
+.statusChipRejected {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+}
+
+.statusChipDraft {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.18) !important;
+}
+
+.statusChipPendingApproval {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: #15803d !important;
+  border: 1px solid rgba(34, 197, 94, 0.18) !important;
+}
+
+.statusChipRejected {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.18) !important;
+}
+
+@media (max-width: 1200px) {
+  .formGridTwo,
+  .formOptionGrid,
+  .signerGrid,
+  .yearBlockForm {
+    grid-template-columns: 1fr;
+  }
+
+  .responsibleItem {
+    grid-template-columns: 1fr;
+  }
+
+  .tableSection {
+    overflow-x: auto;
+    margin: 0 16px 16px;
+  }
+
+  .tableHeaderRow,
+  .tableRow {
+    min-width: 2208px;
+  }
+}
+
+@media (max-width: 900px) {
+  .formGridThree {
+    grid-template-columns: 1fr;
+  }
+
+  .majorFieldWrapper,
+  .sectionHeaderRow,
+  .yearBlockHeader,
+  .yearBlockHeaderRight,
+  .modeCardTop,
+  .requestActionCard {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .yearLevelSelect {
+    min-width: 100%;
+  }
+
+  .modeChipRow,
+  .requestActionButtons {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 24px 16px 40px;
+  }
+
+  .sectionCard,
+  .modeCard,
+  .requestActionCard {
+    padding: 20px;
+  }
+
+  .pageTitle {
+    font-size: 1.65rem !important;
+  }
+}

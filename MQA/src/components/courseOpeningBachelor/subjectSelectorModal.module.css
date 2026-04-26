@@ -1,0 +1,143 @@
+.dialogPaper {
+  border-radius: 24px !important;
+  overflow: hidden !important;
+}
+
+.dialogTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 24px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.titleText {
+  font-size: 1.2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.dialogContent {
+  padding: 24px !important;
+  background: #ffffff;
+}
+
+.tabs {
+  margin-bottom: 20px;
+}
+
+.filterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fbff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.infoLabel {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+}
+
+.infoValue {
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.subjectList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.subjectCard {
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.subjectCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+}
+
+.subjectCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.subjectCode {
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #1d4ed8 !important;
+}
+
+.subjectMajor {
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  color: #0f766e !important;
+  background: rgba(20, 184, 166, 0.12);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.subjectName {
+  margin-bottom: 4px !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.subjectMeta {
+  font-size: 0.92rem !important;
+  color: #64748b !important;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  background: #f8fbff;
+}
+
+.emptyStateTitle {
+  margin-bottom: 8px !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.emptyStateText {
+  font-size: 0.95rem !important;
+  color: #64748b !important;
+}

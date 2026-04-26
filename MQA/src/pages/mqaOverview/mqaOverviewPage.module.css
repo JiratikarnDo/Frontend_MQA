@@ -1,0 +1,509 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, #f5fbff 0%, #eef7ff 100%);
+}
+
+.backgroundGlowTop {
+  position: absolute;
+  top: -120px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.backgroundGlowBottom {
+  position: absolute;
+  right: -120px;
+  bottom: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.headerTopRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.headerContent {
+  min-width: 0;
+}
+
+.pageEyebrow {
+  margin-bottom: 10px !important;
+  font-size: 0.85rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  color: #2563eb !important;
+  text-transform: uppercase;
+}
+
+.pageTitle {
+  margin-bottom: 8px !important;
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.pageDescription {
+  max-width: 980px;
+  font-size: 1rem !important;
+  line-height: 1.75 !important;
+  color: #475569 !important;
+}
+
+.headerActionBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.roundChip {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+.headerActionButton,
+.tableActionButton {
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24) !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+}
+
+.headerActionButton {
+  min-width: 240px !important;
+  min-height: 46px !important;
+}
+
+.tableActionButton {
+  min-width: 140px !important;
+  min-height: 40px !important;
+}
+
+.headerActionButton:hover,
+.tableActionButton:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+}
+
+.deadlineSectionCard,
+.tableSectionCard {
+  padding: 28px;
+  border-radius: 30px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.deadlineSectionCard {
+  margin-bottom: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.sectionDescription {
+  max-width: 900px;
+  font-size: 0.96rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.deadlineList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.deadlineRow {
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(191, 219, 254, 0.6);
+}
+
+.deadlineRowLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.deadlineIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  flex-shrink: 0;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.deadlineInfoBlock {
+  min-width: 0;
+  width: 100%;
+}
+
+.deadlineTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.deadlineMainText {
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  line-height: 1.7 !important;
+  color: #0f172a !important;
+}
+
+.deadlineHelperText {
+  margin-top: 6px !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+}
+
+.documentTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.documentTypeBadgeMqa3 {
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+}
+
+.documentTypeBadgeMqa5 {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  color: #4f46e5;
+}
+
+.deadlineStatusUpcoming,
+.deadlineStatusOpen,
+.deadlineStatusUrgent,
+.deadlineStatusOverdue {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+}
+
+.deadlineStatusUpcoming {
+  background: rgba(226, 232, 240, 0.92) !important;
+  color: #334155 !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+}
+
+.deadlineStatusOpen {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #047857 !important;
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+}
+
+.deadlineStatusUrgent {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.22) !important;
+}
+
+.deadlineStatusOverdue {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+}
+
+.resultChip {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+.tableContainer {
+  border-radius: 24px;
+  border: 1px solid rgba(191, 219, 254, 0.68);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  overflow-x: auto;
+}
+
+.table {
+  min-width: 1320px;
+}
+
+.tableHeadRow {
+  background: #eff6ff;
+}
+
+.headCell {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  color: #1e3a8a !important;
+  border-bottom: 1px solid rgba(191, 219, 254, 0.85) !important;
+  white-space: nowrap;
+}
+
+.tableBodyRow:hover {
+  background: rgba(239, 246, 255, 0.5);
+}
+
+.bodyCell {
+  vertical-align: top !important;
+  padding-top: 18px !important;
+  padding-bottom: 18px !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85) !important;
+}
+
+.codeText {
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  color: #0f172a !important;
+}
+
+.courseInfoBlock {
+  min-width: 260px;
+}
+
+.courseName {
+  margin-bottom: 6px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  line-height: 1.6 !important;
+}
+
+.courseMeta {
+  font-size: 0.88rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.groupInfoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.primaryText {
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.secondaryText {
+  font-size: 0.9rem !important;
+  line-height: 1.6 !important;
+  color: #64748b !important;
+}
+
+.documentStatusCell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 220px;
+}
+
+.documentStatusItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.documentLabel {
+  font-size: 0.9rem !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+}
+
+.detailInfoCell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 340px;
+}
+
+.detailInfoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailTitle {
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.detailText {
+  font-size: 0.9rem !important;
+  line-height: 1.7 !important;
+  color: #475569 !important;
+}
+
+.statusSubmitted,
+.statusLate,
+.statusDraft,
+.statusWaiting,
+.statusPending {
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+}
+
+.statusSubmitted {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #047857 !important;
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+}
+
+.statusLate {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+}
+
+.statusDraft {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.22) !important;
+}
+
+.statusWaiting {
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: #4338ca !important;
+  border: 1px solid rgba(99, 102, 241, 0.22) !important;
+}
+
+.statusPending {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.22) !important;
+}
+
+.emptyTableCell {
+  padding: 0 !important;
+  border-bottom: none !important;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 20px;
+}
+
+.emptyStateIcon {
+  font-size: 2.5rem !important;
+  color: #93c5fd;
+}
+
+.emptyStateTitle {
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.emptyStateDescription {
+  max-width: 700px;
+  text-align: center;
+  font-size: 0.94rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+@media (max-width: 960px) {
+  .container {
+    padding: 24px 16px 36px;
+  }
+
+  .headerTopRow,
+  .sectionHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .headerActionBlock {
+    align-items: stretch;
+  }
+
+  .headerActionButton {
+    width: 100%;
+  }
+
+  .deadlineRowLeft {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .deadlineSectionCard,
+  .tableSectionCard {
+    padding: 22px;
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .pageTitle {
+    font-size: 1.7rem !important;
+  }
+
+  .deadlineTitleRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

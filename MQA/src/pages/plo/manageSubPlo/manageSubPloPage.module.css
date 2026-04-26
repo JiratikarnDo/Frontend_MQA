@@ -1,0 +1,299 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, #f5fbff 0%, #eef7ff 100%);
+}
+
+.backgroundGlowTop {
+  position: absolute;
+  top: -120px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.backgroundGlowBottom {
+  position: absolute;
+  right: -120px;
+  bottom: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.pageTitle {
+  margin-bottom: 8px !important;
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.pageDescription {
+  max-width: 960px;
+  font-size: 1rem !important;
+  line-height: 1.7 !important;
+  color: #475569 !important;
+}
+
+.sectionCard {
+  padding: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.07);
+}
+
+.cardHeader {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  margin-bottom: 6px !important;
+  font-size: 1.2rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.sectionDescription {
+  font-size: 0.96rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.ploList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ploCard {
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.ploHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.ploHeadLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ploCodeChip {
+  width: fit-content;
+  border-radius: 999px !important;
+  background: rgba(219, 234, 254, 0.92) !important;
+  color: #1d4ed8 !important;
+  font-weight: 800 !important;
+}
+
+.ploTitle {
+  font-size: 1rem !important;
+  line-height: 1.75 !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.ploActionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.countChip {
+  border-radius: 999px !important;
+  background: rgba(241, 245, 249, 0.95) !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+.primaryButton {
+  min-width: 140px !important;
+  border-radius: 14px !important;
+  padding: 10px 18px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22) !important;
+}
+
+.expandButton {
+  border-radius: 14px !important;
+  background: rgba(248, 250, 252, 0.96) !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: #334155 !important;
+}
+
+.subPloPanel {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.emptyState {
+  padding: 28px 20px;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f7ff 100%);
+  text-align: center;
+}
+
+.emptyTitle {
+  margin-bottom: 6px !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.emptyDescription {
+  font-size: 0.95rem !important;
+  line-height: 1.7 !important;
+  color: #64748b !important;
+}
+
+.subPloList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.subPloItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.subPloItemLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.subPloItemCode {
+  flex-shrink: 0;
+  border-radius: 12px !important;
+  background: rgba(224, 242, 254, 0.95) !important;
+  color: #0369a1 !important;
+  font-weight: 800 !important;
+}
+
+.subPloItemDescription {
+  font-size: 0.97rem !important;
+  line-height: 1.7 !important;
+  color: #1e293b !important;
+}
+
+.subPloItemActionRow {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.itemActionButton {
+  border-radius: 12px !important;
+  background: rgba(248, 250, 252, 0.95) !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: #334155 !important;
+}
+
+.deleteActionButton {
+  border-radius: 12px !important;
+  background: rgba(254, 242, 242, 0.96) !important;
+  border: 1px solid rgba(252, 165, 165, 0.28) !important;
+  color: #dc2626 !important;
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.dialogHint {
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  color: #2563eb !important;
+}
+
+@media (max-width: 960px) {
+  .ploHeader {
+    flex-direction: column;
+  }
+
+  .ploActionRow {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 24px 16px 40px;
+  }
+
+  .sectionCard {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .ploCard {
+    padding: 18px;
+  }
+
+  .subPloItem {
+    flex-direction: column;
+  }
+
+  .subPloItemLeft {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .subPloItemActionRow {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .primaryButton {
+    width: 100% !important;
+  }
+}
