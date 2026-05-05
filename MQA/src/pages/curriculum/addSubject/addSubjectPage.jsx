@@ -166,12 +166,47 @@ const mapCourseFromApi = (course, subGroupOptions) => {
   }
 }
 
+const fetchAllCoursesFromApi = async (apiUrl, config) => {
+  const pageSize = 100
+  let currentPage = 1
+  let allCourses = []
+  let shouldContinue = true
+
+  while (shouldContinue) {
+    const response = await axios.get(`${apiUrl}/course/`, {
+      ...config,
+      params: {
+        page: currentPage,
+        size: pageSize,
+      },
+    })
+
+    const courseList = getResponseList(response.data, [
+      'courses',
+      'items',
+      'data',
+      'results',
+    ])
+
+    allCourses = [...allCourses, ...courseList]
+
+    shouldContinue = courseList.length === pageSize
+    currentPage += 1
+  }
+
+  return allCourses
+}
+
 function AddSubjectPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const apiUrl = import.meta.env.VITE_API_URL
   const selectedMajor = location.state?.major || null
-  const selectedDepartmentId = selectedMajor?.id || selectedMajor?.department_id || selectedMajor?.departmentId || null
+  const selectedDepartmentId =
+    selectedMajor?.department_id ||
+    selectedMajor?.departmentId ||
+    selectedMajor?.id ||
+    null
 
   const [formValue, setFormValue] = useState(initialFormValue)
   const [popup, setPopup] = useState({ open: false, field: '', title: '', value: '' })
@@ -191,7 +226,7 @@ function AddSubjectPage() {
 
       const config = getAuthConfig()
       const subGroupResponse = await axios.get(`${apiUrl}/subject-category/subgroup`, config)
-      const subGroupList = getResponseList(subGroupResponse.data, ['subgroups', 'data'])
+      const subGroupList = getResponseList(subGroupResponse.data, ['subgroups', 'items', 'data', 'results'])
       const mappedSubGroupOptions = subGroupList.map((subGroup) => mapSubGroupFromApi(subGroup))
 
       setSubGroupOptions(mappedSubGroupOptions)
@@ -202,8 +237,8 @@ function AddSubjectPage() {
         return
       }
 
-      const courseResponse = await axios.get(`${apiUrl}/course/department/${selectedDepartmentId}`, config)
-      const courseList = getResponseList(courseResponse.data, ['courses', 'data'])
+      const courseList = await fetchAllCoursesFromApi(apiUrl, config)
+
       const detailList = await Promise.all(
         courseList.map(async (course) => {
           const courseId = getCourseId(course)
@@ -219,7 +254,18 @@ function AddSubjectPage() {
         })
       )
 
-      const mappedSubjectList = detailList.map((course) => mapCourseFromApi(course, mappedSubGroupOptions))
+      const selectedDepartmentIdText = String(selectedDepartmentId)
+
+      const hasDepartmentIdInResponse = detailList.some((course) => {
+        const departmentId = getDepartmentId(course)
+        return departmentId !== null && departmentId !== undefined && departmentId !== ''
+      })
+
+      const courseListInSelectedDepartment = hasDepartmentIdInResponse
+        ? detailList.filter((course) => String(getDepartmentId(course)) === selectedDepartmentIdText)
+        : detailList
+
+      const mappedSubjectList = courseListInSelectedDepartment.map((course) => mapCourseFromApi(course, mappedSubGroupOptions))
 
       setSubjectList(mappedSubjectList)
     } catch (error) {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Button,
@@ -7,6 +7,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import axios from 'axios'
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded'
 import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded'
@@ -23,8 +24,50 @@ const initialFormData = {
   deadlineAt: '',
 }
 
+const getAuthConfig = () => {
+  const token = localStorage.getItem('mqa_token')
+  return { headers: { Authorization: `Bearer ${token}` } }
+}
+
+const getResponseList = (data, keyList = []) => {
+  if (Array.isArray(data)) return data
+
+  for (const key of keyList) {
+    if (Array.isArray(data?.[key])) return data[key]
+  }
+
+  const valueList = Object.values(data || {})
+
+  for (const value of valueList) {
+    if (Array.isArray(value)) return value
+  }
+
+  return []
+}
+
+const getApiErrorMessage = (error, fallbackMessage) => {
+  const detail = error.response?.data?.detail
+
+  if (typeof detail === 'string') return detail
+  if (detail?.message) return detail.message
+  if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message || String(item)).join(', ')
+
+  return fallbackMessage
+}
+
+const getDateInputValue = (dateValue) => {
+  if (!dateValue) return ''
+  return String(dateValue).slice(0, 10)
+}
+
+const toApiDateTime = (dateValue, timeValue = '00:00:00') => {
+  if (!dateValue) return null
+  return `${dateValue}T${timeValue}`
+}
+
 function parseDateValue(dateValue) {
-  return new Date(`${dateValue}T00:00:00`)
+  const normalizedDate = getDateInputValue(dateValue)
+  return new Date(`${normalizedDate}T00:00:00`)
 }
 
 function getTodayDate() {
@@ -34,9 +77,7 @@ function getTodayDate() {
 }
 
 function formatDateThai(dateValue) {
-  if (!dateValue) {
-    return '-'
-  }
+  if (!dateValue) return '-'
 
   return parseDateValue(dateValue).toLocaleDateString('th-TH', {
     day: '2-digit',
@@ -78,9 +119,7 @@ function isNearDeadline(item) {
   const closeDate = parseDateValue(item.deadlineAt)
   const status = getDeadlineStatus(item)
 
-  if (status.key !== 'open') {
-    return false
-  }
+  if (status.key !== 'open') return false
 
   const diffTime = closeDate.getTime() - today.getTime()
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -93,23 +132,70 @@ function getFormTypeLabel(formType) {
 }
 
 function getTermTypeLabel(termType) {
-  if (termType === '1') {
-    return 'ภาคการศึกษาที่ 1'
-  }
+  const normalizedTermType = String(termType)
 
-  if (termType === '2') {
-    return 'ภาคการศึกษาที่ 2'
-  }
+  if (normalizedTermType === '1') return 'ภาคการศึกษาที่ 1'
+  if (normalizedTermType === '2') return 'ภาคการศึกษาที่ 2'
 
   return 'ภาคฤดูร้อน'
 }
 
+function mapDeadlineFromApi(deadline) {
+  return {
+    id: deadline.id || deadline.deadline_id || deadline.deadlineId,
+    formType: deadline.tqf_type || deadline.tqfType || deadline.form_type || deadline.formType || 'mqa3',
+    termType: String(deadline.semester ?? deadline.termType ?? deadline.term_type ?? '1'),
+    academicYear: String(deadline.academic_year ?? deadline.academicYear ?? ''),
+    openAt: getDateInputValue(deadline.start_date || deadline.startDate || deadline.open_at || deadline.openAt),
+    deadlineAt: getDateInputValue(deadline.end_date || deadline.endDate || deadline.deadline_at || deadline.deadlineAt),
+    isActive: deadline.is_active ?? deadline.isActive ?? true,
+    rawData: deadline,
+  }
+}
+
+function buildDeadlinePayload(item) {
+  return {
+    tqf_type: item.formType,
+    semester: item.termType,
+    academic_year: Number(item.academicYear),
+    start_date: toApiDateTime(item.openAt, '00:00:00'),
+    end_date: toApiDateTime(item.deadlineAt, '23:59:00'),
+  }
+}
+
 function ManageDeadlinePage() {
+  const apiUrl = import.meta.env.VITE_API_URL
+
   const [formData, setFormData] = useState(initialFormData)
   const [deadlineItems, setDeadlineItems] = useState([])
   const [editingItemId, setEditingItemId] = useState(null)
   const [editingDeadlineAt, setEditingDeadlineAt] = useState('')
   const [expandedItemIds, setExpandedItemIds] = useState([])
+  const [isDeadlineLoading, setIsDeadlineLoading] = useState(false)
+  const [isDeadlineSaving, setIsDeadlineSaving] = useState(false)
+  const [deadlineErrorMessage, setDeadlineErrorMessage] = useState('')
+
+  const fetchDeadlineItems = useCallback(async () => {
+    try {
+      setIsDeadlineLoading(true)
+      setDeadlineErrorMessage('')
+
+      const response = await axios.get(`${apiUrl}/tqf/deadlines`, getAuthConfig())
+      const responseList = getResponseList(response.data, ['deadlines', 'items', 'data'])
+      const mappedDeadlineItems = responseList.map((deadline) => mapDeadlineFromApi(deadline))
+
+      setDeadlineItems(mappedDeadlineItems)
+    } catch (error) {
+      console.error('Error fetching TQF deadlines:', error)
+      setDeadlineErrorMessage(getApiErrorMessage(error, 'ไม่สามารถดึงข้อมูลรอบเวลาได้ กรุณาลองใหม่อีกครั้ง'))
+    } finally {
+      setIsDeadlineLoading(false)
+    }
+  }, [apiUrl])
+
+  useEffect(() => {
+    fetchDeadlineItems()
+  }, [fetchDeadlineItems])
 
   const handleChangeFormData = (event) => {
     const { name, value } = event.target
@@ -124,7 +210,7 @@ function ManageDeadlinePage() {
     setFormData(initialFormData)
   }
 
-  const handleSubmitForm = () => {
+  const handleSubmitForm = async () => {
     const { formType, termType, academicYear, openAt, deadlineAt } = formData
 
     if (!formType || !termType || !academicYear || !openAt || !deadlineAt) {
@@ -132,18 +218,24 @@ function ManageDeadlinePage() {
       return
     }
 
-    if (openAt > deadlineAt) {
-      window.alert('วันเปิดระบบต้องไม่มากกว่าวันปิดระบบ')
+    if (openAt >= deadlineAt) {
+      window.alert('วันปิดระบบต้องอยู่หลังวันเปิดระบบเสมอ')
       return
     }
 
-    const newItem = {
-      id: Date.now(),
-      ...formData,
-    }
+    try {
+      setIsDeadlineSaving(true)
+      setDeadlineErrorMessage('')
 
-    setDeadlineItems((previousItems) => [newItem, ...previousItems])
-    handleResetForm()
+      await axios.post(`${apiUrl}/tqf/deadlines`, buildDeadlinePayload(formData), getAuthConfig())
+      await fetchDeadlineItems()
+      handleResetForm()
+    } catch (error) {
+      console.error('Error creating TQF deadline:', error)
+      window.alert(getApiErrorMessage(error, 'ไม่สามารถบันทึกรอบเวลาได้ กรุณาลองใหม่อีกครั้ง'))
+    } finally {
+      setIsDeadlineSaving(false)
+    }
   }
 
   const handleStartEditDeadline = (item) => {
@@ -159,55 +251,64 @@ function ManageDeadlinePage() {
     setEditingDeadlineAt('')
   }
 
-  const handleSaveEditedDeadline = (itemId) => {
+  const handleSaveEditedDeadline = async (itemId) => {
     const currentItem = deadlineItems.find((item) => item.id === itemId)
 
-    if (!currentItem) {
-      return
-    }
+    if (!currentItem) return
 
     if (!editingDeadlineAt) {
       window.alert('กรุณาเลือกวันปิดระบบ')
       return
     }
 
-    if (currentItem.openAt > editingDeadlineAt) {
-      window.alert('วันปิดระบบต้องไม่น้อยกว่าวันเปิดระบบ')
+    if (currentItem.openAt >= editingDeadlineAt) {
+      window.alert('วันปิดระบบต้องอยู่หลังวันเปิดระบบเสมอ')
       return
     }
 
-    setDeadlineItems((previousItems) =>
-      previousItems.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              deadlineAt: editingDeadlineAt,
-            }
-          : item
-      )
-    )
+    try {
+      setIsDeadlineSaving(true)
+      setDeadlineErrorMessage('')
 
-    handleCancelEditDeadline()
+      const updatedItem = {
+        ...currentItem,
+        deadlineAt: editingDeadlineAt,
+      }
+
+      await axios.put(`${apiUrl}/tqf/deadlines/${itemId}`, buildDeadlinePayload(updatedItem), getAuthConfig())
+      await fetchDeadlineItems()
+      handleCancelEditDeadline()
+    } catch (error) {
+      console.error('Error updating TQF deadline:', error)
+      window.alert(getApiErrorMessage(error, 'ไม่สามารถอัปเดตรอบเวลาได้ กรุณาลองใหม่อีกครั้ง'))
+    } finally {
+      setIsDeadlineSaving(false)
+    }
   }
 
-  const handleDeleteItem = (itemId) => {
+  const handleDeleteItem = async (itemId) => {
     const isConfirmed = window.confirm('ต้องการลบรอบเวลานี้ใช่หรือไม่')
 
-    if (!isConfirmed) {
-      return
+    if (!isConfirmed) return
+
+    try {
+      setIsDeadlineSaving(true)
+      setDeadlineErrorMessage('')
+
+      await axios.delete(`${apiUrl}/tqf/deadlines/${itemId}`, getAuthConfig())
+
+      if (editingItemId === itemId) {
+        handleCancelEditDeadline()
+      }
+
+      setExpandedItemIds((previousIds) => previousIds.filter((id) => id !== itemId))
+      await fetchDeadlineItems()
+    } catch (error) {
+      console.error('Error deleting TQF deadline:', error)
+      window.alert(getApiErrorMessage(error, 'ไม่สามารถลบรอบเวลาได้ กรุณาลองใหม่อีกครั้ง'))
+    } finally {
+      setIsDeadlineSaving(false)
     }
-
-    if (editingItemId === itemId) {
-      handleCancelEditDeadline()
-    }
-
-    setExpandedItemIds((previousIds) =>
-      previousIds.filter((id) => id !== itemId)
-    )
-
-    setDeadlineItems((previousItems) =>
-      previousItems.filter((item) => item.id !== itemId)
-    )
   }
 
   const handleToggleItemExpand = (itemId) => {
@@ -218,9 +319,7 @@ function ManageDeadlinePage() {
         handleCancelEditDeadline()
       }
 
-      setExpandedItemIds((previousIds) =>
-        previousIds.filter((id) => id !== itemId)
-      )
+      setExpandedItemIds((previousIds) => previousIds.filter((id) => id !== itemId))
       return
     }
 
@@ -237,12 +336,8 @@ function ManageDeadlinePage() {
   }
 
   const totalCount = deadlineItems.length
-  const openCount = deadlineItems.filter(
-    (item) => getDeadlineStatus(item).key === 'open'
-  ).length
-  const nearDeadlineCount = deadlineItems.filter((item) =>
-    isNearDeadline(item)
-  ).length
+  const openCount = deadlineItems.filter((item) => getDeadlineStatus(item).key === 'open').length
+  const nearDeadlineCount = deadlineItems.filter((item) => isNearDeadline(item)).length
 
   const summaryItems = [
     {
@@ -390,8 +485,9 @@ function ManageDeadlinePage() {
               variant="contained"
               className={styles.primaryButton}
               onClick={handleSubmitForm}
+              disabled={isDeadlineSaving}
             >
-              บันทึกรอบเวลา
+              {isDeadlineSaving ? 'กำลังบันทึก...' : 'บันทึกรอบเวลา'}
             </Button>
           </Box>
         </Box>
@@ -404,8 +500,14 @@ function ManageDeadlinePage() {
               </Typography>
 
               <Typography className={styles.sectionDescription}>
-                รายการนี้เป็นการจำลองการบันทึกข้อมูลบนหน้า Frontend ก่อนเชื่อมต่อ API
+                รายการนี้ดึงจากข้อมูลรอบเวลาที่บันทึกไว้ในระบบจริง
               </Typography>
+
+              {deadlineErrorMessage && (
+                <Typography className={styles.emptyStateDescription}>
+                  {deadlineErrorMessage}
+                </Typography>
+              )}
             </Box>
 
             {deadlineItems.length > 0 && (
@@ -429,7 +531,19 @@ function ManageDeadlinePage() {
             )}
           </Box>
 
-          {deadlineItems.length === 0 ? (
+          {isDeadlineLoading ? (
+            <Box className={styles.emptyState}>
+              <Chip label="กำลังโหลด" className={styles.emptyChip} />
+
+              <Typography className={styles.emptyTitle}>
+                กำลังโหลดข้อมูลรอบเวลา
+              </Typography>
+
+              <Typography className={styles.emptyDescription}>
+                กรุณารอสักครู่
+              </Typography>
+            </Box>
+          ) : deadlineItems.length === 0 ? (
             <Box className={styles.emptyState}>
               <Chip label="ยังไม่มีข้อมูล" className={styles.emptyChip} />
 
@@ -496,6 +610,7 @@ function ManageDeadlinePage() {
                             className={styles.deleteButton}
                             startIcon={<DeleteOutlineRoundedIcon />}
                             onClick={() => handleDeleteItem(item.id)}
+                            disabled={isDeadlineSaving}
                           >
                             ลบ
                           </Button>
@@ -547,6 +662,7 @@ function ManageDeadlinePage() {
                                 variant="outlined"
                                 className={styles.itemSecondaryButton}
                                 onClick={handleCancelEditDeadline}
+                                disabled={isDeadlineSaving}
                               >
                                 ยกเลิก
                               </Button>
@@ -555,8 +671,9 @@ function ManageDeadlinePage() {
                                 variant="contained"
                                 className={styles.itemPrimaryButton}
                                 onClick={() => handleSaveEditedDeadline(item.id)}
+                                disabled={isDeadlineSaving}
                               >
-                                บันทึกวันปิด
+                                {isDeadlineSaving ? 'กำลังบันทึก...' : 'บันทึกวันปิด'}
                               </Button>
 
                               <Button
@@ -564,6 +681,7 @@ function ManageDeadlinePage() {
                                 className={styles.deleteButton}
                                 startIcon={<DeleteOutlineRoundedIcon />}
                                 onClick={() => handleDeleteItem(item.id)}
+                                disabled={isDeadlineSaving}
                               >
                                 ลบ
                               </Button>
@@ -583,6 +701,7 @@ function ManageDeadlinePage() {
                                 className={styles.deleteButton}
                                 startIcon={<DeleteOutlineRoundedIcon />}
                                 onClick={() => handleDeleteItem(item.id)}
+                                disabled={isDeadlineSaving}
                               >
                                 ลบ
                               </Button>
