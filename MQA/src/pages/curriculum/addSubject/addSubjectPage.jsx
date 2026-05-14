@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Autocomplete,
   Box,
@@ -21,6 +21,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import styles from './addSubjectPage.module.css'
 import SubjectReviewDialog from './subjectReviewDialog'
 
@@ -37,15 +38,17 @@ const subjectCategoryOptions = [
 ]
 
 const subCategoryOptions = [
-  'กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์',
-  'กลุ่มวิชาภาษา',
-  'กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์',
-  'กลุ่มบูรณาการ',
+  'กลุ่มสาระวิชาอัตลักษณ์',
+  'กลุ่มสาระวิชาคุณภาพชีวิต',
+  'กลุ่มสาระวิชาคุณภาพการทำงาน',
+  'กลุ่มสาระวิชาภาษาและการสื่อสาร',
+  'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
+  'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
   'กลุ่มวิชาแกน',
-  'กลุ่มวิชาเฉพาะด้าน',
+  'กลุ่มวิชาบังคับ',
   'กลุ่มวิชาเลือก',
-  'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์',
   'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+  'วิชาเลือกเสรี',
 ]
 
 const studyLineOptions = [
@@ -53,13 +56,7 @@ const studyLineOptions = [
   'สายมนุษยศาสตร์และสังคมศาสตร์',
 ]
 
-const mockReferenceSubjectOptions = [
-  '04-10-101 การคิดอย่างเป็นระบบ',
-  '04-10-102 ภาษาอังกฤษเพื่อการสื่อสาร',
-  '04-10-103 คณิตศาสตร์พื้นฐาน',
-  '04-10-201 โครงสร้างข้อมูล',
-  '04-10-202 การเขียนโปรแกรมเชิงวัตถุ',
-]
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const initialFormValue = {
   courseCode: '',
@@ -81,48 +78,158 @@ const initialFormValue = {
   coSubjects: [],
 }
 
-const initialSubjectList = [
-  {
-    id: 1,
-    courseCode: '04-10-201',
-    curriculumLevel: 'bachelor',
-    courseNameThai: 'โครงสร้างข้อมูล',
-    courseNameEnglish: 'Data Structures',
-    subjectCategory: 'specific',
-    subCategory: 'กลุ่มวิชาเฉพาะด้าน',
-    studyLine: 'สายวิทยาศาสตร์',
-    totalCredits: 3,
-    lectureHours: 3,
-    labHours: 0,
-    selfStudyHours: 6,
-    descriptionThai: 'ศึกษาโครงสร้างข้อมูลพื้นฐานและการประยุกต์ใช้งาน',
-    descriptionEnglish: 'Study basic data structures and applications.',
-    hasPreSubjects: 'no',
-    preSubjects: [],
-    hasCoSubjects: 'no',
-    coSubjects: [],
-  },
-  {
-    id: 2,
-    courseCode: '04-10-202',
-    curriculumLevel: 'bachelor',
-    courseNameThai: 'การเขียนโปรแกรมเชิงวัตถุ',
-    courseNameEnglish: 'Object-Oriented Programming',
-    subjectCategory: 'specific',
-    subCategory: 'กลุ่มวิชาแกน',
-    studyLine: 'สายวิทยาศาสตร์',
-    totalCredits: 3,
-    lectureHours: 2,
-    labHours: 2,
-    selfStudyHours: 5,
-    descriptionThai: 'ศึกษาแนวคิดการพัฒนาโปรแกรมเชิงวัตถุ',
-    descriptionEnglish: 'Study object-oriented programming concepts.',
-    hasPreSubjects: 'yes',
-    preSubjects: ['04-10-101 การคิดอย่างเป็นระบบ'],
-    hasCoSubjects: 'no',
-    coSubjects: [],
-  },
-]
+const initialSubjectList = []
+
+
+
+const getFirstTextValue = (...values) => {
+  for (const value of values) {
+    const cleanValue = String(value ?? '').trim()
+
+    if (cleanValue) {
+      return cleanValue
+    }
+  }
+
+  return ''
+}
+
+const getNormalizedCourseCode = (courseCode) => {
+  return String(courseCode || '').trim().toLowerCase()
+}
+
+const normalizeImportedSubject = (subject) => {
+  const preSubjects = Array.isArray(subject.preSubjects)
+    ? subject.preSubjects
+    : Array.isArray(subject.pre_subjects)
+      ? subject.pre_subjects
+      : []
+
+  const coSubjects = Array.isArray(subject.coSubjects)
+    ? subject.coSubjects
+    : Array.isArray(subject.co_subjects)
+      ? subject.co_subjects
+      : []
+
+  return {
+    id: subject.id || Date.now() + Math.random(),
+    courseCode: getFirstTextValue(
+      subject.courseCode,
+      subject.course_code,
+      subject.code
+    ),
+    curriculumLevel: getFirstTextValue(
+      subject.curriculumLevel,
+      subject.curriculum_level,
+      subject.courseLevel,
+      subject.course_level,
+      'bachelor'
+    ),
+    courseNameThai: getFirstTextValue(
+      subject.courseNameThai,
+      subject.courseNameTh,
+      subject.course_name_thai,
+      subject.course_name_th,
+      subject.nameThai,
+      subject.name_thai
+    ),
+    courseNameEnglish: getFirstTextValue(
+      subject.courseNameEnglish,
+      subject.courseNameEn,
+      subject.course_name_english,
+      subject.course_name_en,
+      subject.nameEnglish,
+      subject.name_english,
+      subject.englishName,
+      subject.english_name
+    ),
+    subjectCategory: getFirstTextValue(
+      subject.subjectCategory,
+      subject.subject_category,
+      'specific'
+    ),
+    subCategory: getFirstTextValue(
+      subject.subCategory,
+      subject.sub_category
+    ),
+    studyLine: getFirstTextValue(
+      subject.studyLine,
+      subject.study_line,
+      'สายวิทยาศาสตร์'
+    ),
+    totalCredits: Number(subject.totalCredits ?? subject.total_credits ?? 0),
+    lectureHours: Number(subject.lectureHours ?? subject.lecture_hours ?? 0),
+    labHours: Number(subject.labHours ?? subject.lab_hours ?? 0),
+    selfStudyHours: Number(subject.selfStudyHours ?? subject.self_study_hours ?? 0),
+    descriptionThai: getFirstTextValue(
+      subject.descriptionThai,
+      subject.descriptionTh,
+      subject.description_thai,
+      subject.description_th
+    ),
+    descriptionEnglish: getFirstTextValue(
+      subject.descriptionEnglish,
+      subject.descriptionEn,
+      subject.description_english,
+      subject.description_en
+    ),
+    hasPreSubjects: getFirstTextValue(
+      subject.hasPreSubjects,
+      subject.has_pre_subjects,
+      preSubjects.length > 0 ? 'yes' : 'no'
+    ),
+    preSubjects,
+    hasCoSubjects: getFirstTextValue(
+      subject.hasCoSubjects,
+      subject.has_co_subjects,
+      coSubjects.length > 0 ? 'yes' : 'no'
+    ),
+    coSubjects,
+  }
+}
+
+
+const getSelectedDepartmentId = (selectedMajor) => {
+  return (
+    selectedMajor?.id ||
+    selectedMajor?.departmentId ||
+    selectedMajor?.department_id ||
+    selectedMajor?.majorId ||
+    null
+  )
+}
+
+const getAuthToken = () => {
+  return (
+    localStorage.getItem('mqa_token') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken') ||
+    ''
+  )
+}
+
+const buildCoursePayload = (subject, selectedMajor) => {
+  return {
+    courseCode: subject.courseCode || '',
+    curriculumLevel: subject.curriculumLevel || 'bachelor',
+    courseNameThai: subject.courseNameThai || '',
+    courseNameEnglish: subject.courseNameEnglish || '',
+    subjectCategory: subject.subjectCategory || 'specific',
+    subCategory: subject.subCategory || '',
+    studyLine: subject.studyLine || 'สายวิทยาศาสตร์',
+    totalCredits: Number(subject.totalCredits || 0),
+    lectureHours: Number(subject.lectureHours || 0),
+    labHours: Number(subject.labHours || 0),
+    selfStudyHours: Number(subject.selfStudyHours || 0),
+    descriptionThai: subject.descriptionThai || '',
+    descriptionEnglish: subject.descriptionEnglish || '',
+    hasPreSubjects: subject.preSubjects?.length ? 'yes' : subject.hasPreSubjects || 'no',
+    preSubjects: Array.isArray(subject.preSubjects) ? subject.preSubjects : [],
+    hasCoSubjects: subject.coSubjects?.length ? 'yes' : subject.hasCoSubjects || 'no',
+    coSubjects: Array.isArray(subject.coSubjects) ? subject.coSubjects : [],
+    departmentId: getSelectedDepartmentId(selectedMajor),
+  }
+}
 
 function AddSubjectPage() {
   const navigate = useNavigate()
@@ -139,6 +246,13 @@ function AddSubjectPage() {
   const [subjectList, setSubjectList] = useState(initialSubjectList)
   const [editingSubjectId, setEditingSubjectId] = useState(null)
   const [isSubjectReviewDialogOpen, setIsSubjectReviewDialogOpen] = useState(false)
+  const [wordFiles, setWordFiles] = useState([])
+  const [isImportingWord, setIsImportingWord] = useState(false)
+  const [importWordMessage, setImportWordMessage] = useState('')
+  const [importWordError, setImportWordError] = useState('')
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false)
+  const [loadSubjectError, setLoadSubjectError] = useState('')
+  const [isSavingSubject, setIsSavingSubject] = useState(false)
 
   const creditFormat = useMemo(() => {
     return `${Number(formValue.totalCredits || 0)}(${Number(formValue.lectureHours || 0)}-${Number(formValue.labHours || 0)}-${Number(formValue.selfStudyHours || 0)})`
@@ -151,6 +265,69 @@ function AddSubjectPage() {
 
   const activeOverviewLevel = formValue.curriculumLevel || 'bachelor'
   const isUsingDefaultOverviewLevel = !formValue.curriculumLevel
+  const selectedDepartmentId = getSelectedDepartmentId(selectedMajor)
+
+  const referenceSubjectOptions = useMemo(() => {
+    return subjectList
+      .filter((subject) => subject.courseCode)
+      .map((subject) => {
+        const name = subject.courseNameThai || subject.courseNameEnglish || ''
+        return `${subject.courseCode}${name ? ` ${name}` : ''}`.trim()
+      })
+  }, [subjectList])
+
+  const loadSubjectsFromBackend = async () => {
+    const token = getAuthToken()
+
+    if (!token) {
+      setSubjectList([])
+      setLoadSubjectError('ไม่พบ token การเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่')
+      return
+    }
+
+    setIsLoadingSubjects(true)
+    setLoadSubjectError('')
+
+    try {
+      const queryParams = new URLSearchParams({
+        page: '1',
+        size: '1000',
+      })
+
+      if (selectedDepartmentId) {
+        queryParams.set('departmentId', String(selectedDepartmentId))
+      }
+
+      const response = await fetch(`${apiBaseUrl}/course/?${queryParams.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.detail || 'โหลดรายวิชาจากฐานข้อมูลไม่สำเร็จ')
+      }
+
+      const subjectArray = Array.isArray(result)
+        ? result
+        : Array.isArray(result.subjects)
+          ? result.subjects
+          : []
+
+      setSubjectList(subjectArray.map((subject) => normalizeImportedSubject(subject)))
+    } catch (error) {
+      setSubjectList([])
+      setLoadSubjectError(error.message || 'โหลดรายวิชาจากฐานข้อมูลไม่สำเร็จ')
+    } finally {
+      setIsLoadingSubjects(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSubjectsFromBackend()
+  }, [selectedDepartmentId])
 
   const handleChangeField = (fieldName, value) => {
     setFormValue((prev) => ({
@@ -230,11 +407,135 @@ function AddSubjectPage() {
     setIsSubjectReviewDialogOpen(false)
   }
 
-  const handleSubmitSubject = () => {
+
+  const mergeSubjectListByCourseCode = (currentList, importedList) => {
+    const subjectMap = new Map()
+
+    currentList.forEach((subject) => {
+      subjectMap.set(getNormalizedCourseCode(subject.courseCode), subject)
+    })
+
+    importedList.forEach((subject) => {
+      const normalizedSubject = normalizeImportedSubject(subject)
+      const normalizedCode = getNormalizedCourseCode(normalizedSubject.courseCode)
+
+      if (!normalizedCode) return
+
+      subjectMap.set(normalizedCode, normalizedSubject)
+    })
+
+    return Array.from(subjectMap.values()).sort((a, b) => {
+      return String(a.courseCode || '').localeCompare(String(b.courseCode || ''))
+    })
+  }
+
+  const handleWordFilesChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || [])
+
+    setImportWordMessage('')
+    setImportWordError('')
+
+    if (selectedFiles.length > 2) {
+      setWordFiles([])
+      event.target.value = ''
+      setImportWordError('อัปโหลดได้สูงสุด 2 ไฟล์เท่านั้น')
+      return
+    }
+
+    const invalidFile = selectedFiles.find((file) => {
+      const lowerName = file.name.toLowerCase()
+      return !lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')
+    })
+
+    if (invalidFile) {
+      setWordFiles([])
+      event.target.value = ''
+      setImportWordError(`ไฟล์ ${invalidFile.name} ไม่ใช่ไฟล์ .doc หรือ .docx`)
+      return
+    }
+
+    const temporaryFile = selectedFiles.find((file) => file.name.startsWith('~$'))
+
+    if (temporaryFile) {
+      setWordFiles([])
+      event.target.value = ''
+      setImportWordError(`ไฟล์ ${temporaryFile.name} เป็นไฟล์ชั่วคราวของ Microsoft Word กรุณาเลือกไฟล์จริง`)
+      return
+    }
+
+    setWordFiles(selectedFiles)
+  }
+
+  const handleImportSubjectsFromWord = async () => {
+    if (wordFiles.length === 0) {
+      setImportWordError('กรุณาเลือกไฟล์ .doc หรือ .docx ก่อน')
+      return
+    }
+
+    const token = localStorage.getItem('mqa_token')
+
+    if (!token) {
+      setImportWordError('ไม่พบ token การเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่')
+      return
+    }
+
+    const formData = new FormData()
+
+    wordFiles.forEach((file) => {
+      formData.append('files', file)
+    })
+
+    formData.append('courseLevel', formValue.curriculumLevel || activeOverviewLevel || 'bachelor')
+
+    if (selectedMajor?.id) {
+      formData.append('departmentId', selectedMajor.id)
+    }
+
+    setIsImportingWord(true)
+    setImportWordMessage('')
+    setImportWordError('')
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/course/import-docx`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.detail || 'นำเข้ารายวิชาจากไฟล์ Word ไม่สำเร็จ')
+      }
+
+      const importedSubjects = Array.isArray(result.subjects) ? result.subjects : []
+
+      setSubjectList((prev) => mergeSubjectListByCourseCode(prev, importedSubjects))
+      await loadSubjectsFromBackend()
+      setImportWordMessage(
+        `นำเข้าสำเร็จ ${result.totalCount || importedSubjects.length} รายวิชา ` +
+        `(เพิ่มใหม่ ${result.createdCount || 0}, อัปเดต ${result.updatedCount || 0})`
+      )
+      setIsSubjectReviewDialogOpen(true)
+    } catch (error) {
+      setImportWordError(error.message || 'นำเข้ารายวิชาจากไฟล์ Word ไม่สำเร็จ')
+    } finally {
+      setIsImportingWord(false)
+    }
+  }
+
+  const handleSubmitSubject = async () => {
     const normalizedCourseCode = formValue.courseCode.trim().toLowerCase()
 
     if (!normalizedCourseCode || !formValue.courseNameThai.trim()) {
       window.alert('กรุณากรอกรหัสวิชาและชื่อรายวิชาภาษาไทย')
+      return
+    }
+
+    if (!selectedDepartmentId) {
+      window.alert('ไม่พบรหัสสาขา กรุณากลับไปเลือกสาขาก่อนเพิ่มรายวิชา')
       return
     }
 
@@ -248,7 +549,14 @@ function AddSubjectPage() {
       return
     }
 
-    const payload = {
+    const token = getAuthToken()
+
+    if (!token) {
+      window.alert('ไม่พบ token การเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่')
+      return
+    }
+
+    const payload = buildCoursePayload({
       ...formValue,
       courseCode: formValue.courseCode.trim(),
       courseNameThai: formValue.courseNameThai.trim(),
@@ -259,65 +567,103 @@ function AddSubjectPage() {
       lectureHours: Number(formValue.lectureHours || 0),
       labHours: Number(formValue.labHours || 0),
       selfStudyHours: Number(formValue.selfStudyHours || 0),
-    }
+    }, selectedMajor)
 
-    if (editingSubjectId) {
-      setSubjectList((prev) =>
-        prev.map((subject) => (
-          subject.id === editingSubjectId
-            ? { ...subject, ...payload }
-            : subject
-        ))
-      )
-    } else {
-      setSubjectList((prev) => [
-        {
-          id: Date.now(),
-          ...payload,
+    setIsSavingSubject(true)
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/course/add-subject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        ...prev,
-      ])
-    }
+        body: JSON.stringify(payload),
+      })
 
-    resetForm()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.detail || 'บันทึกรายวิชาไม่สำเร็จ')
+      }
+
+      const savedSubject = normalizeImportedSubject(result.subject || payload)
+
+      setSubjectList((prev) => mergeSubjectListByCourseCode(
+        prev.filter((subject) => !editingSubjectId || subject.id !== editingSubjectId),
+        [savedSubject]
+      ))
+
+      resetForm()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      window.alert(error.message || 'บันทึกรายวิชาไม่สำเร็จ')
+    } finally {
+      setIsSavingSubject(false)
+    }
   }
 
   const handleEditSubject = (subject) => {
+    const normalizedSubject = normalizeImportedSubject(subject)
+
     setEditingSubjectId(subject.id)
     setFormValue({
-      courseCode: subject.courseCode || '',
-      curriculumLevel: subject.curriculumLevel || '',
-      courseNameThai: subject.courseNameThai || '',
-      courseNameEnglish: subject.courseNameEnglish || '',
-      subjectCategory: subject.subjectCategory || 'generalEducation',
-      subCategory: subject.subCategory || '',
-      studyLine: subject.studyLine || 'สายวิทยาศาสตร์',
-      totalCredits: subject.totalCredits ?? 3,
-      lectureHours: subject.lectureHours ?? 3,
-      labHours: subject.labHours ?? 0,
-      selfStudyHours: subject.selfStudyHours ?? 6,
-      descriptionThai: subject.descriptionThai || '',
-      descriptionEnglish: subject.descriptionEnglish || '',
-      hasPreSubjects: subject.hasPreSubjects || 'no',
-      preSubjects: subject.preSubjects || [],
-      hasCoSubjects: subject.hasCoSubjects || 'no',
-      coSubjects: subject.coSubjects || [],
+      courseCode: normalizedSubject.courseCode || '',
+      curriculumLevel: normalizedSubject.curriculumLevel || '',
+      courseNameThai: normalizedSubject.courseNameThai || '',
+      courseNameEnglish: normalizedSubject.courseNameEnglish || '',
+      subjectCategory: normalizedSubject.subjectCategory || 'generalEducation',
+      subCategory: normalizedSubject.subCategory || '',
+      studyLine: normalizedSubject.studyLine || 'สายวิทยาศาสตร์',
+      totalCredits: normalizedSubject.totalCredits ?? 3,
+      lectureHours: normalizedSubject.lectureHours ?? 3,
+      labHours: normalizedSubject.labHours ?? 0,
+      selfStudyHours: normalizedSubject.selfStudyHours ?? 6,
+      descriptionThai: normalizedSubject.descriptionThai || '',
+      descriptionEnglish: normalizedSubject.descriptionEnglish || '',
+      hasPreSubjects: normalizedSubject.hasPreSubjects || 'no',
+      preSubjects: normalizedSubject.preSubjects || [],
+      hasCoSubjects: normalizedSubject.hasCoSubjects || 'no',
+      coSubjects: normalizedSubject.coSubjects || [],
     })
 
     setIsSubjectReviewDialogOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleDeleteSubject = (subjectId, subjectName) => {
+  const handleDeleteSubject = async (subjectId, subjectName) => {
     const isConfirmed = window.confirm(`ต้องการลบรายวิชา "${subjectName}" ใช่หรือไม่`)
 
     if (!isConfirmed) return
 
-    setSubjectList((prev) => prev.filter((subject) => subject.id !== subjectId))
+    const token = getAuthToken()
 
-    if (editingSubjectId === subjectId) {
-      resetForm()
+    if (!token) {
+      window.alert('ไม่พบ token การเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่')
+      return
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/course/${subjectId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(result.detail || 'ลบรายวิชาไม่สำเร็จ')
+      }
+
+      setSubjectList((prev) => prev.filter((subject) => subject.id !== subjectId))
+
+      if (editingSubjectId === subjectId) {
+        resetForm()
+      }
+    } catch (error) {
+      window.alert(error.message || 'ลบรายวิชาไม่สำเร็จ')
     }
   }
 
@@ -379,6 +725,18 @@ function AddSubjectPage() {
         </Box>
 
         <Box className={styles.formShell}>
+          {isLoadingSubjects && (
+            <Typography sx={{ color: '#2563eb', fontWeight: 700 }}>
+              กำลังโหลดรายวิชาจากฐานข้อมูล...
+            </Typography>
+          )}
+
+          {loadSubjectError && (
+            <Typography sx={{ color: '#dc2626', fontWeight: 700 }}>
+              {loadSubjectError}
+            </Typography>
+          )}
+
           <Box className={styles.infoBanner}>
             <Box className={styles.infoBadge}>
               <SchoolOutlinedIcon fontSize="small" />
@@ -394,6 +752,66 @@ function AddSubjectPage() {
             <Typography className={styles.infoDescription}>
               ใช้ฟอร์มนี้ในการเพิ่มรายวิชาใหม่ และสามารถกดปุ่มตรวจสอบรายวิชาเพื่อดูภาพรวมหน่วยกิต ค้นหา แก้ไข หรือลบรายวิชาที่มีอยู่แล้วได้
             </Typography>
+          </Box>
+
+          <Box className={styles.sectionCard}>
+            <Box className={styles.sectionHeader}>
+              <Typography className={styles.sectionTitle}>
+                อัปโหลดไฟล์ Word เพื่อนำเข้ารายวิชา
+              </Typography>
+
+              <Typography className={styles.sectionHint}>
+                รองรับไฟล์ .docx และ .doc
+              </Typography>
+            </Box>
+
+            <Box className={styles.formGridTwo}>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<UploadFileRoundedIcon />}
+                className={styles.backButton}
+              >
+                เลือกไฟล์ Word
+                <input
+                  type="file"
+                  accept=".doc,.docx"
+                  multiple
+                  hidden
+                  onChange={handleWordFilesChange}
+                />
+              </Button>
+
+              <TextField
+                label="ไฟล์ที่เลือก"
+                value={wordFiles.map((file) => file.name).join(', ')}
+                InputProps={{ readOnly: true }}
+                fullWidth
+              />
+            </Box>
+
+            <Box className={styles.actionButtonGroup}>
+              <Button
+                variant="contained"
+                className={styles.saveButton}
+                onClick={handleImportSubjectsFromWord}
+                disabled={isImportingWord || wordFiles.length === 0}
+              >
+                {isImportingWord ? 'กำลังนำเข้า...' : 'นำเข้ารายวิชา'}
+              </Button>
+            </Box>
+
+            {importWordError && (
+              <Typography sx={{ color: '#dc2626', fontWeight: 700 }}>
+                {importWordError}
+              </Typography>
+            )}
+
+            {importWordMessage && (
+              <Typography sx={{ color: '#15803d', fontWeight: 700 }}>
+                {importWordMessage}
+              </Typography>
+            )}
           </Box>
 
           <Box className={styles.sectionCard}>
@@ -611,7 +1029,7 @@ function AddSubjectPage() {
                 <Autocomplete
                   multiple
                   freeSolo
-                  options={mockReferenceSubjectOptions}
+                  options={referenceSubjectOptions}
                   value={formValue.preSubjects}
                   onChange={(event, value) => handleChangeMultiValueField('preSubjects', value)}
                   renderInput={(params) => (
@@ -645,7 +1063,7 @@ function AddSubjectPage() {
                 <Autocomplete
                   multiple
                   freeSolo
-                  options={mockReferenceSubjectOptions}
+                  options={referenceSubjectOptions}
                   value={formValue.coSubjects}
                   onChange={(event, value) => handleChangeMultiValueField('coSubjects', value)}
                   renderInput={(params) => (
@@ -686,8 +1104,9 @@ function AddSubjectPage() {
                 startIcon={<SaveRoundedIcon />}
                 className={styles.saveButton}
                 onClick={handleSubmitSubject}
+                disabled={isSavingSubject}
               >
-                {editingSubjectId ? 'บันทึกการแก้ไข' : 'บันทึกรายวิชา'}
+                {isSavingSubject ? 'กำลังบันทึก...' : editingSubjectId ? 'บันทึกการแก้ไข' : 'บันทึกรายวิชา'}
               </Button>
             </Box>
           </Box>

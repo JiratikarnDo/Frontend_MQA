@@ -20,38 +20,89 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import styles from './subjectReviewDialog.module.css'
 
+const generalEducationRows = [
+  {
+    label: 'กลุ่มสาระวิชาอัตลักษณ์',
+    bucket: 'ge:กลุ่มสาระวิชาอัตลักษณ์',
+    minimum: 3,
+  },
+  {
+    label: 'กลุ่มสาระวิชาคุณภาพชีวิต',
+    bucket: 'ge:กลุ่มสาระวิชาคุณภาพชีวิต',
+    minimum: 3,
+  },
+  {
+    label: 'กลุ่มสาระวิชาคุณภาพการทำงาน',
+    bucket: 'ge:กลุ่มสาระวิชาคุณภาพการทำงาน',
+    minimum: 6,
+  },
+  {
+    label: 'กลุ่มสาระวิชาภาษาและการสื่อสาร',
+    bucket: 'ge:กลุ่มสาระวิชาภาษาและการสื่อสาร',
+    minimum: 6,
+  },
+  {
+    label: 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
+    bucket: 'ge:กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
+    minimum: 3,
+  },
+  {
+    label: 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
+    bucket: 'ge:กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
+    minimum: 3,
+  },
+]
+
+const specificRows = [
+  {
+    label: 'กลุ่มวิชาแกน',
+    bucket: 'specific:กลุ่มวิชาแกน',
+    minimum: 24,
+  },
+  {
+    label: 'กลุ่มวิชาบังคับ',
+    bucket: 'specific:กลุ่มวิชาบังคับ',
+    minimum: 38,
+  },
+  {
+    label: 'กลุ่มวิชาเลือก',
+    bucket: 'specific:กลุ่มวิชาเลือก',
+    minimum: 21,
+  },
+  {
+    label: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+    bucket: 'specific:กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+    minimum: 7,
+  },
+]
+
+const freeElectiveRows = [
+  {
+    label: 'วิชาเลือกเสรี',
+    bucket: 'freeElective:วิชาเลือกเสรี',
+    minimum: 6,
+  },
+]
+
 const overviewConfigByLevel = {
   bachelor: [
     {
       title: '1) หมวดวิชาศึกษาทั่วไป',
       firstColumnLabel: 'กลุ่ม',
       totalLabel: 'รวมหมวดศึกษาทั่วไป',
-      rows: [
-        { label: 'กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', bucket: 'ge:กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', minimum: 6 },
-        { label: 'กลุ่มวิชาภาษา', bucket: 'ge:กลุ่มวิชาภาษา', minimum: 12 },
-        { label: 'กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', bucket: 'ge:กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', minimum: 6 },
-        { label: 'กลุ่มบูรณาการ', bucket: 'ge:กลุ่มบูรณาการ', minimum: 6 },
-      ],
+      rows: generalEducationRows,
     },
     {
       title: '2) หมวดวิชาเฉพาะ',
       firstColumnLabel: 'กลุ่ม',
       totalLabel: 'รวมหมวดวิชาเฉพาะ',
-      rows: [
-        { label: 'กลุ่มวิชาแกน', bucket: 'specific:กลุ่มวิชาแกน', minimum: 15 },
-        { label: 'กลุ่มวิชาเฉพาะด้าน', bucket: 'specific:กลุ่มวิชาเฉพาะด้าน', minimum: 52 },
-        { label: 'กลุ่มวิชาเลือก', bucket: 'specific:กลุ่มวิชาเลือก', minimum: 12 },
-        { label: 'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', bucket: 'specific:กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', minimum: 6 },
-        { label: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', bucket: 'specific:กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', minimum: 7 },
-      ],
+      rows: specificRows,
     },
     {
       title: '3) หมวดวิชาเลือกเสรี',
       firstColumnLabel: 'หมวด',
       totalLabel: 'รวมหมวดวิชาเลือกเสรี',
-      rows: [
-        { label: 'วิชาเลือกเสรี', bucket: 'freeElective:วิชาเลือกเสรี', minimum: 6 },
-      ],
+      rows: freeElectiveRows,
     },
   ],
   master: [
@@ -59,32 +110,19 @@ const overviewConfigByLevel = {
       title: '1) หมวดวิชาศึกษาทั่วไป',
       firstColumnLabel: 'กลุ่ม',
       totalLabel: 'รวมหมวดศึกษาทั่วไป',
-      rows: [
-        { label: 'กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', bucket: 'ge:กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', minimum: 6 },
-        { label: 'กลุ่มวิชาภาษา', bucket: 'ge:กลุ่มวิชาภาษา', minimum: 12 },
-        { label: 'กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', bucket: 'ge:กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', minimum: 6 },
-        { label: 'กลุ่มบูรณาการ', bucket: 'ge:กลุ่มบูรณาการ', minimum: 6 },
-      ],
+      rows: generalEducationRows,
     },
     {
       title: '2) หมวดวิชาเฉพาะ',
       firstColumnLabel: 'กลุ่ม',
       totalLabel: 'รวมหมวดวิชาเฉพาะ',
-      rows: [
-        { label: 'กลุ่มวิชาแกน', bucket: 'specific:กลุ่มวิชาแกน', minimum: 15 },
-        { label: 'กลุ่มวิชาเฉพาะด้าน', bucket: 'specific:กลุ่มวิชาเฉพาะด้าน', minimum: 52 },
-        { label: 'กลุ่มวิชาเลือก', bucket: 'specific:กลุ่มวิชาเลือก', minimum: 12 },
-        { label: 'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', bucket: 'specific:กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', minimum: 6 },
-        { label: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', bucket: 'specific:กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', minimum: 7 },
-      ],
+      rows: specificRows,
     },
     {
       title: '3) หมวดวิชาเลือกเสรี',
       firstColumnLabel: 'หมวด',
       totalLabel: 'รวมหมวดวิชาเลือกเสรี',
-      rows: [
-        { label: 'วิชาเลือกเสรี', bucket: 'freeElective:วิชาเลือกเสรี', minimum: 6 },
-      ],
+      rows: freeElectiveRows,
     },
   ],
   doctorate: [
@@ -92,34 +130,152 @@ const overviewConfigByLevel = {
       title: '1) หมวดวิชาศึกษาทั่วไป',
       firstColumnLabel: 'กลุ่ม',
       totalLabel: 'รวมหมวดศึกษาทั่วไป',
-      rows: [
-        { label: 'กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', bucket: 'ge:กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', minimum: 6 },
-        { label: 'กลุ่มวิชาภาษา', bucket: 'ge:กลุ่มวิชาภาษา', minimum: 12 },
-        { label: 'กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', bucket: 'ge:กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', minimum: 6 },
-        { label: 'กลุ่มบูรณาการ', bucket: 'ge:กลุ่มบูรณาการ', minimum: 6 },
-      ],
+      rows: generalEducationRows,
     },
     {
       title: '2) หมวดวิชาเฉพาะ',
       firstColumnLabel: 'กลุ่ม',
       totalLabel: 'รวมหมวดวิชาเฉพาะ',
-      rows: [
-        { label: 'กลุ่มวิชาแกน', bucket: 'specific:กลุ่มวิชาแกน', minimum: 15 },
-        { label: 'กลุ่มวิชาเฉพาะด้าน', bucket: 'specific:กลุ่มวิชาเฉพาะด้าน', minimum: 52 },
-        { label: 'กลุ่มวิชาเลือก', bucket: 'specific:กลุ่มวิชาเลือก', minimum: 12 },
-        { label: 'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', bucket: 'specific:กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', minimum: 6 },
-        { label: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', bucket: 'specific:กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', minimum: 7 },
-      ],
+      rows: specificRows,
     },
     {
       title: '3) หมวดวิชาเลือกเสรี',
       firstColumnLabel: 'หมวด',
       totalLabel: 'รวมหมวดวิชาเลือกเสรี',
-      rows: [
-        { label: 'วิชาเลือกเสรี', bucket: 'freeElective:วิชาเลือกเสรี', minimum: 6 },
-      ],
+      rows: freeElectiveRows,
     },
   ],
+}
+
+const categoryAliasMap = {
+  general: 'generalEducation',
+  generaleducation: 'generalEducation',
+  general_education: 'generalEducation',
+  ge: 'generalEducation',
+  วิชาศึกษาทั่วไป: 'generalEducation',
+  หมวดวิชาศึกษาทั่วไป: 'generalEducation',
+  หมวดรายวิชาศึกษาทั่วไป: 'generalEducation',
+
+  specific: 'specific',
+  วิชาเฉพาะ: 'specific',
+  หมวดวิชาเฉพาะ: 'specific',
+
+  free: 'freeElective',
+  freeelective: 'freeElective',
+  free_elective: 'freeElective',
+  'วิชาเลือกเสรี': 'freeElective',
+  'หมวดวิชาเลือกเสรี': 'freeElective',
+  'หมวดเลือกเสรี': 'freeElective',
+}
+
+const exactSubCategoryAliasMap = {
+  // หมวดวิชาศึกษาทั่วไป ตามโครงสร้างหลักสูตร 3.4.1
+  'กลุ่มสาระวิชาอัตลักษณ์': 'กลุ่มสาระวิชาอัตลักษณ์',
+  'กลุ่มสาระวิชาคุณภาพชีวิต': 'กลุ่มสาระวิชาคุณภาพชีวิต',
+  'กลุ่มสาระวิชาคุณภาพการทำงาน': 'กลุ่มสาระวิชาคุณภาพการทำงาน',
+  'กลุ่มสาระวิชาคุณภาพการทํางาน': 'กลุ่มสาระวิชาคุณภาพการทำงาน',
+  'กลุ่มสาระวิชาภาษาและการสื่อสาร': 'กลุ่มสาระวิชาภาษาและการสื่อสาร',
+  'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต': 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
+  'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก': 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
+
+  // ชื่อเดิม/ชื่อจากหน้าตัวอย่างเดิม ให้ map เข้ากลุ่มใหม่เท่าที่ใกล้เคียง
+  'กลุ่มวิชาภาษา': 'กลุ่มสาระวิชาภาษาและการสื่อสาร',
+  'กลุ่มบูรณาการ': 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
+
+  // หมวดวิชาเฉพาะ ตาม 3.4.1/3.4.2
+  'กลุ่มวิชาแกน': 'กลุ่มวิชาแกน',
+  'กลุ่มวิชาบังคับ': 'กลุ่มวิชาบังคับ',
+  'กลุ่มวิชาเฉพาะด้าน': 'กลุ่มวิชาบังคับ',
+  'กลุ่มวิชาเลือก': 'กลุ่มวิชาเลือก',
+  'กลุ่มวิชาการพัฒนาซอฟต์แวร์': 'กลุ่มวิชาเลือก',
+  'กลุ่มการพัฒนาซอฟต์แวร์': 'กลุ่มวิชาเลือก',
+  'กลุ่มวิทยาการข้อมูล': 'กลุ่มวิชาเลือก',
+  'กลุ่มปัญญาประดิษฐ์และระบบอัตโนมัติ': 'กลุ่มวิชาเลือก',
+  'กลุ่มโครงสร้างพื้นฐานทางเทคโนโลยีสารสนเทศ': 'กลุ่มวิชาเลือก',
+  'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์': 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+  'กลุ่มวิชาเสริมสร้างประสบการณ์': 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+  'กลุ่มวิชาเสริมสร้างประสบการณ์ทางวิทยาการคอมพิวเตอร์': 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+  'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ': 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+
+  'วิชาเลือกเสรี': 'วิชาเลือกเสรี',
+  'หมวดวิชาเลือกเสรี': 'วิชาเลือกเสรี',
+  'หมวดเลือกเสรี': 'วิชาเลือกเสรี',
+}
+
+function normalizeTextValue(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/ทํางาน/g, 'ทำงาน')
+    .trim()
+}
+
+function normalizeSubjectCategory(value, courseCode = '') {
+  const cleanValue = normalizeTextValue(value)
+  const compactValue = cleanValue.replace(/\s+/g, '').toLowerCase()
+
+  if (categoryAliasMap[compactValue]) {
+    return categoryAliasMap[compactValue]
+  }
+
+  if (categoryAliasMap[cleanValue]) {
+    return categoryAliasMap[cleanValue]
+  }
+
+  const cleanCourseCode = String(courseCode || '').trim()
+
+  if (cleanCourseCode.startsWith('15-')) return 'generalEducation'
+  if (cleanCourseCode.toLowerCase().startsWith('xx-')) return 'freeElective'
+  if (cleanCourseCode.startsWith('04-')) return 'specific'
+
+  return cleanValue || ''
+}
+
+function normalizeSubCategory(value, subjectCategory = '', courseCode = '') {
+  const cleanValue = normalizeTextValue(value)
+
+  if (exactSubCategoryAliasMap[cleanValue]) {
+    return exactSubCategoryAliasMap[cleanValue]
+  }
+
+  if (cleanValue.includes('กลุ่มสาระวิชาอัตลักษณ์')) return 'กลุ่มสาระวิชาอัตลักษณ์'
+  if (cleanValue.includes('กลุ่มสาระวิชาคุณภาพชีวิต')) return 'กลุ่มสาระวิชาคุณภาพชีวิต'
+  if (cleanValue.includes('กลุ่มสาระวิชาคุณภาพการทำงาน') || cleanValue.includes('กลุ่มสาระวิชาคุณภาพการทํางาน')) return 'กลุ่มสาระวิชาคุณภาพการทำงาน'
+  if (cleanValue.includes('กลุ่มสาระวิชาภาษาและการสื่อสาร')) return 'กลุ่มสาระวิชาภาษาและการสื่อสาร'
+  if (cleanValue.includes('กลุ่มสาระวิชาการปรับตัว')) return 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต'
+  if (cleanValue.includes('กลุ่มสาระวิชาความเป็นพลเมืองไทย')) return 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก'
+
+  if (cleanValue.includes('กลุ่มวิชาแกน')) return 'กลุ่มวิชาแกน'
+  if (cleanValue.includes('กลุ่มวิชาบังคับ') || cleanValue.includes('กลุ่มวิชาเฉพาะด้าน')) return 'กลุ่มวิชาบังคับ'
+  if (
+    cleanValue.includes('กลุ่มวิชาเลือก') ||
+    cleanValue.includes('พัฒนาซอฟต์แวร์') ||
+    cleanValue.includes('วิทยาการข้อมูล') ||
+    cleanValue.includes('ปัญญาประดิษฐ์') ||
+    cleanValue.includes('ระบบอัตโนมัติ') ||
+    cleanValue.includes('โครงสร้างพื้นฐานทางเทคโนโลยีสารสนเทศ')
+  ) {
+    return 'กลุ่มวิชาเลือก'
+  }
+  if (cleanValue.includes('เสริมสร้างประสบการณ์') || cleanValue.includes('โครงงานสำหรับวิทยาการคอมพิวเตอร์')) {
+    return 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ'
+  }
+
+  const normalizedCategory = normalizeSubjectCategory(subjectCategory, courseCode)
+  const cleanCourseCode = String(courseCode || '').trim()
+
+  if (normalizedCategory === 'freeElective') return 'วิชาเลือกเสรี'
+
+  // fallback กรณี backend ส่งแค่หมวดหลักมา แต่ยังไม่ส่งกลุ่มย่อย
+  if (normalizedCategory === 'generalEducation') {
+    if (cleanCourseCode.startsWith('15-03-')) return 'กลุ่มสาระวิชาอัตลักษณ์'
+    return cleanValue || 'กลุ่มสาระวิชาอัตลักษณ์'
+  }
+
+  if (normalizedCategory === 'specific') {
+    return cleanValue || 'กลุ่มวิชาบังคับ'
+  }
+
+  return cleanValue
 }
 
 function getCurriculumLevelLabel(optionList, value) {
@@ -127,31 +283,31 @@ function getCurriculumLevelLabel(optionList, value) {
 }
 
 function getSubjectCategoryLabel(optionList, value) {
-  return optionList.find((item) => item.value === value)?.label || '-'
+  const normalizedValue = normalizeSubjectCategory(value)
+  return optionList.find((item) => item.value === normalizedValue)?.label || '-'
 }
 
 function getSubjectBucket(subject) {
-  if (subject.subjectCategory === 'generalEducation') {
-    return `ge:${subject.subCategory || ''}`
+  const normalizedCategory = normalizeSubjectCategory(
+    subject.subjectCategory,
+    subject.courseCode
+  )
+
+  const normalizedSubCategory = normalizeSubCategory(
+    subject.subCategory,
+    normalizedCategory,
+    subject.courseCode
+  )
+
+  if (normalizedCategory === 'generalEducation') {
+    return `ge:${normalizedSubCategory}`
   }
 
-  if (subject.subjectCategory === 'specific') {
-    const specificGroupList = [
-      'กลุ่มวิชาแกน',
-      'กลุ่มวิชาเฉพาะด้าน',
-      'กลุ่มวิชาเลือก',
-      'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์',
-      'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-    ]
-
-    if (specificGroupList.includes(subject.subCategory)) {
-      return `specific:${subject.subCategory}`
-    }
-
-    return 'specific:กลุ่มวิชาเฉพาะด้าน'
+  if (normalizedCategory === 'specific') {
+    return `specific:${normalizedSubCategory}`
   }
 
-  if (subject.subjectCategory === 'freeElective') {
+  if (normalizedCategory === 'freeElective') {
     return 'freeElective:วิชาเลือกเสรี'
   }
 
@@ -187,9 +343,9 @@ function SubjectReviewDialog({
 
     return subjectList.filter((subject) => {
       return (
-        subject.courseCode.toLowerCase().includes(normalizedKeyword) ||
-        subject.courseNameThai.toLowerCase().includes(normalizedKeyword) ||
-        subject.courseNameEnglish.toLowerCase().includes(normalizedKeyword)
+        String(subject.courseCode || '').toLowerCase().includes(normalizedKeyword) ||
+        String(subject.courseNameThai || '').toLowerCase().includes(normalizedKeyword) ||
+        String(subject.courseNameEnglish || '').toLowerCase().includes(normalizedKeyword)
       )
     })
   }, [searchKeyword, subjectList])
@@ -390,58 +546,71 @@ function SubjectReviewDialog({
               </Box>
             ) : (
               <Box className={styles.subjectList}>
-                {filteredSubjectList.map((subject) => (
-                  <Box key={subject.id} className={styles.subjectItemCard}>
-                    <Box className={styles.subjectItemTop}>
-                      <Box className={styles.subjectMetaGroup}>
-                        <Chip
-                          label={subject.courseCode}
-                          className={styles.subjectCodeChip}
-                        />
+                {filteredSubjectList.map((subject) => {
+                  const normalizedCategory = normalizeSubjectCategory(
+                    subject.subjectCategory,
+                    subject.courseCode
+                  )
+                  const normalizedSubCategory = normalizeSubCategory(
+                    subject.subCategory,
+                    normalizedCategory,
+                    subject.courseCode
+                  )
 
-                        <Chip
-                          label={getCurriculumLevelLabel(curriculumLevelOptions, subject.curriculumLevel)}
-                          variant="outlined"
-                          className={styles.subjectLevelChip}
-                        />
+                  return (
+                    <Box key={subject.id} className={styles.subjectItemCard}>
+                      <Box className={styles.subjectItemTop}>
+                        <Box className={styles.subjectMetaGroup}>
+                          <Chip
+                            label={subject.courseCode}
+                            className={styles.subjectCodeChip}
+                          />
+
+                          <Chip
+                            label={getCurriculumLevelLabel(curriculumLevelOptions, subject.curriculumLevel)}
+                            variant="outlined"
+                            className={styles.subjectLevelChip}
+                          />
+                        </Box>
+
+                        <Box className={styles.subjectActionGroup}>
+                          <IconButton
+                            className={styles.subjectActionButton}
+                            onClick={() => onEditSubject(subject)}
+                          >
+                            <EditRoundedIcon />
+                          </IconButton>
+
+                          <IconButton
+                            className={styles.subjectActionButton}
+                            onClick={() => onDeleteSubject(subject.id, subject.courseNameThai)}
+                          >
+                            <DeleteOutlineRoundedIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
 
-                      <Box className={styles.subjectActionGroup}>
-                        <IconButton
-                          className={styles.subjectActionButton}
-                          onClick={() => onEditSubject(subject)}
-                        >
-                          <EditRoundedIcon />
-                        </IconButton>
+                      <Typography className={styles.subjectItemNameThai}>
+                        {subject.courseNameThai}
+                      </Typography>
 
-                        <IconButton
-                          className={styles.subjectActionButton}
-                          onClick={() => onDeleteSubject(subject.id, subject.courseNameThai)}
-                        >
-                          <DeleteOutlineRoundedIcon />
-                        </IconButton>
+                      <Typography className={styles.subjectItemNameEnglish}>
+                        {subject.courseNameEnglish}
+                      </Typography>
+
+                      <Box className={styles.subjectInfoRow}>
+                        <Typography className={styles.subjectInfoText}>
+                          หมวดวิชา: {getSubjectCategoryLabel(subjectCategoryOptions, normalizedCategory)}
+                          {normalizedSubCategory ? ` / ${normalizedSubCategory}` : ''}
+                        </Typography>
+
+                        <Typography className={styles.subjectInfoText}>
+                          หน่วยกิต: {`${subject.totalCredits}(${subject.lectureHours}-${subject.labHours}-${subject.selfStudyHours})`}
+                        </Typography>
                       </Box>
                     </Box>
-
-                    <Typography className={styles.subjectItemNameThai}>
-                      {subject.courseNameThai}
-                    </Typography>
-
-                    <Typography className={styles.subjectItemNameEnglish}>
-                      {subject.courseNameEnglish}
-                    </Typography>
-
-                    <Box className={styles.subjectInfoRow}>
-                      <Typography className={styles.subjectInfoText}>
-                        หมวดวิชา: {getSubjectCategoryLabel(subjectCategoryOptions, subject.subjectCategory)}
-                      </Typography>
-
-                      <Typography className={styles.subjectInfoText}>
-                        หน่วยกิต: {`${subject.totalCredits}(${subject.lectureHours}-${subject.labHours}-${subject.selfStudyHours})`}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
+                  )
+                })}
               </Box>
             )}
           </Box>
