@@ -11,7 +11,7 @@ const courseOpeningItems = [
   { label: 'ระดับปริญญาเอก', path: '/courseOpeningDoctoral' },
 ]
 
-const roleLabelMap = { admin: 'ผู้ดูแลระบบ', staff: 'เจ้าหน้าที่', officer: 'เจ้าหน้าที่', headMajor: 'หัวหน้าสาขา', teacher: 'อาจารย์', dean: 'คณบดี' }
+const roleLabelMap = { admin: 'ผู้ดูแลระบบ', staff: 'เจ้าหน้าที่', headmajor: 'หัวหน้าสาขา', teacher: 'อาจารย์', dean: 'คณบดี' }
 
 function MainNavbar({ facultyName = 'คณะบริหารธุรกิจและเทคโนโลยีสารสนเทศ' }) {
   const location = useLocation()
@@ -43,8 +43,8 @@ function MainNavbar({ facultyName = 'คณะบริหารธุรกิ�
   }, [apiUrl])
 
   const isAdmin = userProfile.roleKey === 'admin'
-  const isStaff = userProfile.roleKey === 'staff' || userProfile.roleKey === 'officer'
-  const isHeadMajor = userProfile.roleKey === 'headMajor'
+  const isStaff = userProfile.roleKey === 'staff'
+  const isHeadMajor = userProfile.roleKey === 'headmajor'
   const isTeacher = userProfile.roleKey === 'teacher'
   const isDean = userProfile.roleKey === 'dean'
   const canViewCourseOpening = isAdmin || isHeadMajor
