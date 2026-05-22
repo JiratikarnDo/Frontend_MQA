@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Autocomplete, Box, Button, Checkbox, Chip, FormControlLabel, MenuItem, Radio, RadioGroup, TextField, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -209,8 +209,12 @@ function getStatusConfig(status) {
   return { label: '-', className: '' }
 }
 
+const normalizeRequestStatus = (status) => normalizeText(status).toLowerCase().replace(/[\s_-]/g, '')
+const isRejectedRequestStatus = (status) => ['rejected', 'rejectedbydean', 'reject'].includes(normalizeRequestStatus(status))
+
 function CourseOpeningMasterPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const apiUrl = import.meta.env.VITE_API_URL
   const requestData = location.state?.requestData || null
   const initialPageData = useMemo(() => buildInitialPageData(requestData), [requestData])
@@ -558,35 +562,38 @@ function CourseOpeningMasterPage() {
     return ''
   }
 
-const saveDraftRequest = async ({ returnToViewMode = false } = {}) => {
-  const payload = buildCourseOpeningPayload()
-  const validationMessage = validateDraftPayload(payload)
-  if (validationMessage) { window.alert(validationMessage); return }
+  const saveDraftRequest = async ({ returnToViewMode = false } = {}) => {
+    const payload = buildCourseOpeningPayload()
+    const validationMessage = validateDraftPayload(payload)
+    if (validationMessage) { window.alert(validationMessage); return }
 
-  const requestId = getCourseOpeningRequestId(requestData) || createdRequestId
+    const requestId = getCourseOpeningRequestId(requestData) || createdRequestId
+    const isRejectedRequest = isRejectedRequestStatus(currentRequestStatus)
+    const updatePayload = isRejectedRequest ? { ...payload, status: 'draft' } : payload
 
-  closeSubjectSelector()
-  setIsSubmittingRequest(true)
+    closeSubjectSelector()
+    setIsSubmittingRequest(true)
 
-  try {
-    if (requestId) {
-      await axios.put(`${apiUrl}${COURSE_OPENING_ENDPOINT}${requestId}`, payload, getAuthConfig())
-      window.alert('บันทึกแบบร่างสำเร็จ')
-    } else {
-      const response = await axios.post(`${apiUrl}${COURSE_OPENING_ENDPOINT}Draft`, payload, getAuthConfig())
-      const newRequestId = response.data?.id ?? response.data?.request_id ?? response.data?.requestId ?? response.data?.data?.id ?? response.data?.data?.request_id ?? response.data?.data?.requestId ?? ''
-      if (newRequestId) setCreatedRequestId(newRequestId)
-      window.alert(newRequestId ? `บันทึกแบบร่างสำเร็จ เลขที่คำร้อง ${newRequestId}` : 'บันทึกแบบร่างสำเร็จ')
+    try {
+      if (requestId) {
+        await axios.put(`${apiUrl}${COURSE_OPENING_ENDPOINT}${requestId}`, updatePayload, getAuthConfig())
+        window.alert(isRejectedRequest ? 'บันทึกการแก้ไขสำเร็จ เอกสารถูกเปลี่ยนกลับเป็นแบบร่างแล้ว สามารถกลับไปส่งเอกสารใหม่ได้' : 'บันทึกแบบร่างสำเร็จ')
+        if (isRejectedRequest) { navigate(-1); return }
+      } else {
+        const response = await axios.post(`${apiUrl}${COURSE_OPENING_ENDPOINT}Draft`, payload, getAuthConfig())
+        const newRequestId = response.data?.id ?? response.data?.request_id ?? response.data?.requestId ?? response.data?.data?.id ?? response.data?.data?.request_id ?? response.data?.data?.requestId ?? ''
+        if (newRequestId) setCreatedRequestId(newRequestId)
+        window.alert(newRequestId ? `บันทึกแบบร่างสำเร็จ เลขที่คำร้อง ${newRequestId}` : 'บันทึกแบบร่างสำเร็จ')
+      }
+
+      if (returnToViewMode) setPageMode('view')
+    } catch (error) {
+      console.error('Error saving master course opening draft:', error)
+      window.alert(getErrorMessage(error, 'ไม่สามารถบันทึกแบบร่างคำขอเปิดรายวิชาระดับปริญญาโทได้'))
+    } finally {
+      setIsSubmittingRequest(false)
     }
-
-    if (returnToViewMode) setPageMode('view')
-  } catch (error) {
-    console.error('Error saving master course opening draft:', error)
-    window.alert(getErrorMessage(error, 'ไม่สามารถบันทึกแบบร่างคำขอเปิดรายวิชาระดับปริญญาโทได้'))
-  } finally {
-    setIsSubmittingRequest(false)
   }
-}
 
   const handleSaveDraft = () => {
     saveDraftRequest()

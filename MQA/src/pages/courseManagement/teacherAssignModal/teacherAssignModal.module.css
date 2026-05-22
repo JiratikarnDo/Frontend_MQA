@@ -434,3 +434,39 @@
     width: 100% !important;
   }
 }
+
+.scopeButtonGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.scopeButton,
+.scopeButtonActive {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.scopeButtonGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.scopeButton,
+.scopeButtonActive {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.externalDepartmentBox {
+  margin-bottom: 16px;
+}
+
+.externalDepartmentHint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
