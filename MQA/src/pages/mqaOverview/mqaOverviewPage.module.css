@@ -310,9 +310,14 @@
 }
 
 .codeText {
+  display: inline-block;
+  min-width: 96px;
   font-weight: 800 !important;
   letter-spacing: 0.02em !important;
   color: #0f172a !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
 }
 
 .courseInfoBlock {
@@ -506,4 +511,11 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.headCell:first-child,
+.bodyCell:first-child {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
 }

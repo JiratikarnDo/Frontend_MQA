@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   InputAdornment,
   MenuItem,
   Table,
@@ -21,88 +23,237 @@ import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedI
 import DocumentSelectDialog from './documentSelectDialog/documentSelectDialog'
 import styles from './myAssignedCoursesPage.module.css'
 
-const mockAssignedCourseRows = [
-  {
-    id: 'assigned-001',
-    level: 'bachelor',
-    curriculumName: 'หลักสูตรบริหารธุรกิจบัณฑิต',
-    majorName: 'ระบบสารสนเทศทางธุรกิจ',
-    semester: '1',
-    academicYear: '2569',
-    yearLevel: '3',
-    courseCode: 'BIS3301',
-    courseName: 'การวิเคราะห์และออกแบบระบบ',
-    sectionNumber: '1',
-    studentCount: 38,
-    assignedTeacher: 'อาจารย์ธนชัย บัวรุ่ง',
-    mqa3Status: 'draft',
-    mqa5Status: 'waitingGrade',
-  },
-  {
-    id: 'assigned-002',
-    level: 'bachelor',
-    curriculumName: 'หลักสูตรบริหารธุรกิจบัณฑิต',
-    majorName: 'ระบบสารสนเทศทางธุรกิจ',
-    semester: '1',
-    academicYear: '2569',
-    yearLevel: '2',
-    courseCode: 'BIS2204',
-    courseName: 'การจัดการฐานข้อมูล',
-    sectionNumber: '2',
-    studentCount: 42,
-    assignedTeacher: 'อาจารย์ธนชัย บัวรุ่ง',
-    mqa3Status: 'notStarted',
-    mqa5Status: 'waitingGrade',
-  },
-  {
-    id: 'assigned-003',
-    level: 'master',
-    curriculumName: 'หลักสูตรบริหารธุรกิจมหาบัณฑิต',
-    majorName: 'การจัดการเทคโนโลยีสารสนเทศ',
-    semester: '2',
-    academicYear: '2568',
-    yearLevel: '1',
-    courseCode: 'MIT6102',
-    courseName: 'การจัดการโครงการดิจิทัล',
-    sectionNumber: '1',
-    studentCount: 18,
-    assignedTeacher: 'อาจารย์ธนชัย บัวรุ่ง',
-    mqa3Status: 'submitted',
-    mqa5Status: 'draft',
-  },
-  {
-    id: 'assigned-004',
-    level: 'doctoral',
-    curriculumName: 'หลักสูตรปรัชญาดุษฎีบัณฑิต',
-    majorName: 'เทคโนโลยีสารสนเทศ',
-    semester: '2',
-    academicYear: '2568',
-    yearLevel: '1',
-    courseCode: 'ITD8103',
-    courseName: 'สัมมนาการวิจัยขั้นสูง',
-    sectionNumber: '1',
-    studentCount: 9,
-    assignedTeacher: 'อาจารย์ธนชัย บัวรุ่ง',
-    mqa3Status: 'submitted',
-    mqa5Status: 'notStarted',
-  },
-  {
-    id: 'assigned-005',
-    level: 'bachelor',
-    curriculumName: 'หลักสูตรบริหารธุรกิจบัณฑิต',
-    majorName: 'ระบบสารสนเทศทางธุรกิจ',
-    semester: 'summer',
-    academicYear: '2568',
-    yearLevel: '4',
-    courseCode: 'BIS4408',
-    courseName: 'โครงงานระบบสารสนเทศทางธุรกิจ',
-    sectionNumber: '1',
-    studentCount: 24,
-    assignedTeacher: 'อาจารย์ธนชัย บัวรุ่ง',
-    mqa3Status: 'submitted',
-    mqa5Status: 'submitted',
-  },
-]
+const ASSIGNED_COURSES_ENDPOINT = '/course-assignment/my-primary-courses'
+const COURSE_OPENING_ENDPOINT = '/course-opening/'
+
+const getAuthConfig = () => {
+  const token = localStorage.getItem('mqa_token')
+  return { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+}
+
+const normalizeText = (value) => String(value ?? '').trim()
+const normalizeCompareText = (value) => normalizeText(value).toLowerCase().replace(/[\s\-_./]+/g, '')
+
+const getResponseList = (data, keyList = []) => {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.results)) return data.results
+  for (const key of keyList) if (Array.isArray(data?.[key])) return data[key]
+  return []
+}
+
+const getResponseObject = (data) => {
+  if (Array.isArray(data)) return data[0] ?? null
+  if (data?.data && typeof data.data === 'object') return data.data
+  if (data?.item && typeof data.item === 'object') return data.item
+  if (data?.result && typeof data.result === 'object') return data.result
+  return data
+}
+
+const getErrorMessage = (error, fallbackMessage) => {
+  const detail = error?.response?.data?.detail
+  const message = error?.response?.data?.message
+  if (Array.isArray(detail)) return detail.map((item) => item.msg).join(', ')
+  return detail || message || fallbackMessage
+}
+
+function getNestedValue(object, keyList = []) {
+  for (const key of keyList) {
+    const value = key.split('.').reduce((current, part) => current?.[part], object)
+    if (value !== undefined && value !== null && value !== '') return value
+  }
+  return ''
+}
+
+function getCourseOpeningRequestId(item) {
+  return item?.id ?? item?.request_id ?? item?.requestId ?? item?.course_opening_request_id ?? item?.courseOpeningRequestId ?? null
+}
+
+function normalizeDocumentStatus(value) {
+  const text = normalizeText(value).toLowerCase().replace(/[\s_-]/g, '')
+  if (!text) return 'notStarted'
+  if (['submitted', 'submit', 'sent', 'approved', 'pending', 'pendingapproval', 'waitingapproval'].includes(text)) return 'submitted'
+  if (['draft', 'savedraft'].includes(text)) return 'draft'
+  if (['waitinggrade', 'waitgrade', 'aftergrade'].includes(text)) return 'waitingGrade'
+  if (['rejected', 'reject', 'rejectedbydean'].includes(text)) return 'rejected'
+  return 'notStarted'
+}
+
+function inferCourseOpeningLevel(data = {}) {
+  const explicitLevel = normalizeText(data?.level ?? data?.curriculum_level ?? data?.curriculumLevel ?? data?.education_level ?? data?.educationLevel ?? data?.degree_level ?? data?.degreeLevel).toLowerCase()
+  if (['bachelor', 'master', 'doctoral'].includes(explicitLevel)) return explicitLevel
+  if (explicitLevel.includes('ตรี') || explicitLevel.includes('bachelor')) return 'bachelor'
+  if (explicitLevel.includes('โท') || explicitLevel.includes('master')) return 'master'
+  if (explicitLevel.includes('เอก') || explicitLevel.includes('doctoral') || explicitLevel.includes('phd') || explicitLevel.includes('doctor')) return 'doctoral'
+
+  const programType = normalizeText(data?.program_type ?? data?.programType ?? data?.study_plan ?? data?.studyPlan).toLowerCase()
+  const targetGroup = normalizeText(data?.target_group ?? data?.targetGroup).toLowerCase()
+  const curriculumName = normalizeText(data?.curriculum_name ?? data?.curriculumName ?? data?.curriculum_name_thai ?? data?.curriculumNameThai).toLowerCase()
+
+  if (programType === '1.1' || programType === '1.2' || targetGroup === '1.1' || targetGroup === '1.2' || curriculumName.includes('ดุษฎีบัณฑิต') || curriculumName.includes('ปรัชญาดุษฎีบัณฑิต') || curriculumName.includes('ปริญญาเอก')) return 'doctoral'
+  if (programType === 'plana' || programType === 'plana2' || programType === 'planb' || programType === 'plan_a' || programType === 'plan_a2' || programType === 'plan_b' || curriculumName.includes('มหาบัณฑิต') || curriculumName.includes('ปริญญาโท')) return 'master'
+  if (programType === '4year' || programType === '4-year' || programType === 'transfer' || curriculumName.includes('ปริญญาตรี') || curriculumName.includes('วิทยาศาสตรบัณฑิต') || curriculumName.includes('บริหารธุรกิจบัณฑิต') || curriculumName.includes('ศิลปศาสตรบัณฑิต') || curriculumName.includes('บัณฑิต')) return 'bachelor'
+
+  return ''
+}
+
+function normalizeCourseOpeningRequest(apiData, fallbackData = {}) {
+  const data = { ...fallbackData, ...apiData }
+  const id = getCourseOpeningRequestId(data)
+  const status = normalizeText(data?.status).toLowerCase()
+  const curriculumName = data?.curriculum_name ?? data?.curriculumName ?? data?.documentData?.generalForm?.curriculumName ?? ''
+  const majorName = data?.major_name ?? data?.majorName ?? data?.documentData?.generalForm?.majorName ?? ''
+  const semester = String(data?.semester ?? data?.documentData?.generalForm?.semester ?? '')
+  const academicYear = String(data?.academic_year ?? data?.academicYear ?? data?.documentData?.generalForm?.academicYear ?? '')
+  const programType = data?.program_type ?? data?.programType ?? data?.study_plan ?? data?.studyPlan ?? ''
+  const targetGroup = data?.target_group ?? data?.targetGroup ?? ''
+  const level = inferCourseOpeningLevel({ ...data, curriculum_name: curriculumName, curriculumName, program_type: programType, programType, target_group: targetGroup, targetGroup })
+  const requestedCourses = getResponseList(data, ['requested_courses', 'requestedCourses']).map((course, index) => ({
+    id: course?.id ?? course?.requested_course_item_id ?? course?.requestedCourseItemId ?? `${id || 'request'}-${index}`,
+    requestId: id,
+    level,
+    status,
+    curriculumName,
+    majorName,
+    semester,
+    academicYear,
+    courseId: normalizeText(course?.course_id ?? course?.courseId ?? course?.id_course ?? ''),
+    courseCode: normalizeText(course?.course_code_snapshot ?? course?.courseCode ?? course?.course_code ?? ''),
+    courseName: normalizeText(course?.course_name_snapshot ?? course?.courseName ?? course?.course_name ?? ''),
+    groupNo: normalizeText(course?.group_no ?? course?.groupNo ?? course?.section_number ?? course?.sectionNumber ?? '1'),
+    yearLevel: String(course?.year_level ?? course?.yearLevel ?? ''),
+    studentCount: course?.student_count ?? course?.studentCount ?? 0,
+    rawData: course,
+  }))
+  return { id, status, level, curriculumName, majorName, semester, academicYear, programType, targetGroup, requestedCourses, rawData: data }
+}
+
+async function fetchCourseOpeningCourseRows(apiUrl) {
+  const fetchOpeningList = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}${COURSE_OPENING_ENDPOINT}`, { ...getAuthConfig(), params: { page: 1, limit: 100 } })
+      return getResponseList(response.data, ['items', 'data', 'results', 'requests'])
+    } catch (firstError) {
+      try {
+        const response = await axios.get(`${apiUrl}${COURSE_OPENING_ENDPOINT}`, getAuthConfig())
+        return getResponseList(response.data, ['items', 'data', 'results', 'requests'])
+      } catch (secondError) {
+        console.warn('Cannot fetch course opening list for assigned-course level matching:', firstError, secondError)
+        return []
+      }
+    }
+  }
+
+  const summaryList = await fetchOpeningList()
+  const requestList = await Promise.all(summaryList.map(async (summaryItem) => {
+    const requestId = getCourseOpeningRequestId(summaryItem)
+    if (!requestId) return normalizeCourseOpeningRequest(summaryItem)
+
+    try {
+      const detailResponse = await axios.get(`${apiUrl}${COURSE_OPENING_ENDPOINT}${requestId}`, getAuthConfig())
+      return normalizeCourseOpeningRequest(getResponseObject(detailResponse.data), summaryItem)
+    } catch (error) {
+      return normalizeCourseOpeningRequest(summaryItem)
+    }
+  }))
+
+  return requestList.flatMap((requestItem) => requestItem.requestedCourses.map((course) => ({ ...course, requestStatus: requestItem.status, requestRawData: requestItem.rawData })))
+}
+
+function buildTeacherName(teacherData, fallback = '') {
+  const directName = getNestedValue(teacherData, ['full_name', 'fullName', 'name', 'display_name', 'displayName', 'teacher_name', 'teacherName'])
+  if (directName) return directName
+  const prefix = getNestedValue(teacherData, ['prefixname', 'prefixName', 'prefix', 'title', 'academic_title', 'academicTitle'])
+  const firstName = getNestedValue(teacherData, ['first_name', 'firstName', 'firstname', 'given_name', 'givenName'])
+  const lastName = getNestedValue(teacherData, ['last_name', 'lastName', 'lastname', 'surname', 'family_name', 'familyName'])
+  const builtName = normalizeText(`${prefix} ${firstName} ${lastName}`)
+  return builtName || fallback || '-'
+}
+
+function normalizeAssignedCourseBaseRow(row, index) {
+  const requestData = getNestedValue(row, ['request', 'course_opening_request', 'courseOpeningRequest', 'opening_request', 'openingRequest', 'requested_course_item.request', 'requestedCourseItem.request', 'requested_course_item.course_opening_request', 'requestedCourseItem.courseOpeningRequest', 'course_item.request', 'courseItem.request']) || {}
+  const courseData = getNestedValue(row, ['course', 'course_data', 'courseData', 'requested_course_item.course', 'requestedCourseItem.course']) || {}
+  const requestedItem = getNestedValue(row, ['requested_course_item', 'requestedCourseItem', 'course_item', 'courseItem', 'item']) || {}
+  const teacherData = getNestedValue(row, ['teacher', 'assigned_teacher', 'assignedTeacher', 'primary_teacher', 'primaryTeacher']) || {}
+  const requestId = normalizeText(getNestedValue(row, ['request_id', 'requestId', 'course_opening_request_id', 'courseOpeningRequestId', 'opening_request_id', 'openingRequestId', 'requested_course_item.request_id', 'requestedCourseItem.request_id', 'requested_course_item.course_opening_request_id', 'requestedCourseItem.courseOpeningRequestId']) || getNestedValue(requestData, ['id', 'request_id', 'requestId']))
+  const requestedCourseItemId = normalizeText(getNestedValue(row, ['requested_course_item_id', 'requestedCourseItemId', 'course_item_id', 'courseItemId', 'item_id', 'itemId', 'requested_course_item.id', 'requestedCourseItem.id']) || getNestedValue(requestedItem, ['id', 'requested_course_item_id', 'requestedCourseItemId']))
+  const curriculumName = getNestedValue(row, ['curriculumName', 'curriculum_name', 'request.curriculum_name', 'course_opening_request.curriculum_name', 'courseOpeningRequest.curriculum_name', 'opening_request.curriculum_name', 'openingRequest.curriculum_name', 'requested_course_item.request.curriculum_name', 'requestedCourseItem.request.curriculum_name', 'requested_course_item.course_opening_request.curriculum_name', 'requestedCourseItem.courseOpeningRequest.curriculum_name']) || getNestedValue(requestData, ['curriculum_name', 'curriculumName']) || '-'
+  const programType = getNestedValue(row, ['programType', 'program_type', 'studyPlan', 'study_plan', 'request.program_type', 'request.study_plan', 'course_opening_request.program_type', 'courseOpeningRequest.program_type', 'opening_request.program_type', 'openingRequest.program_type']) || getNestedValue(requestData, ['program_type', 'programType', 'study_plan', 'studyPlan'])
+  const targetGroup = getNestedValue(row, ['targetGroup', 'target_group', 'request.target_group', 'course_opening_request.target_group', 'courseOpeningRequest.target_group', 'opening_request.target_group', 'openingRequest.target_group']) || getNestedValue(requestData, ['target_group', 'targetGroup'])
+  const directLevel = inferCourseOpeningLevel({ ...requestData, ...row, curriculum_name: curriculumName, curriculumName, program_type: programType, programType, target_group: targetGroup, targetGroup })
+
+  return {
+    id: getNestedValue(row, ['id', 'assignment_id', 'assignmentId', 'requested_course_item_id', 'requestedCourseItemId']) || `assigned-${index}`,
+    requestId,
+    requestedCourseItemId,
+    level: directLevel,
+    curriculumName,
+    majorName: getNestedValue(row, ['majorName', 'major_name', 'department_name', 'departmentName', 'request.major_name', 'course_opening_request.major_name', 'courseOpeningRequest.major_name', 'opening_request.major_name', 'openingRequest.major_name', 'requested_course_item.request.major_name', 'requestedCourseItem.request.major_name']) || getNestedValue(requestData, ['major_name', 'majorName']) || '-',
+    semester: String(getNestedValue(row, ['semester', 'term', 'request.semester', 'course_opening_request.semester', 'courseOpeningRequest.semester', 'opening_request.semester', 'openingRequest.semester', 'requested_course_item.request.semester', 'requestedCourseItem.request.semester']) || getNestedValue(requestData, ['semester']) || ''),
+    academicYear: String(getNestedValue(row, ['academicYear', 'academic_year', 'year', 'request.academic_year', 'course_opening_request.academic_year', 'courseOpeningRequest.academic_year', 'opening_request.academic_year', 'openingRequest.academic_year', 'requested_course_item.request.academic_year', 'requestedCourseItem.request.academic_year']) || getNestedValue(requestData, ['academic_year', 'academicYear']) || ''),
+    yearLevel: String(getNestedValue(row, ['yearLevel', 'year_level', 'requested_course_item.year_level', 'requestedCourseItem.year_level']) || getNestedValue(requestedItem, ['year_level', 'yearLevel']) || '-'),
+    courseId: normalizeText(getNestedValue(row, ['courseId', 'course_id', 'requested_course_item.course_id', 'requestedCourseItem.course_id']) || getNestedValue(requestedItem, ['course_id', 'courseId']) || getNestedValue(courseData, ['id', 'course_id', 'courseId'])),
+    courseCode: getNestedValue(row, ['courseCode', 'course_code', 'course_code_snapshot', 'course.course_code', 'course.courseCode', 'requested_course_item.course_code_snapshot', 'requestedCourseItem.course_code_snapshot']) || getNestedValue(courseData, ['course_code', 'courseCode']) || getNestedValue(requestedItem, ['course_code_snapshot', 'courseCode']) || '-',
+    courseName: getNestedValue(row, ['courseName', 'course_name', 'course_name_snapshot', 'course.course_name_th', 'course.courseNameTh', 'course.course_name', 'course.courseName', 'requested_course_item.course_name_snapshot', 'requestedCourseItem.course_name_snapshot']) || getNestedValue(courseData, ['course_name_th', 'courseNameTh', 'course_name', 'courseName']) || getNestedValue(requestedItem, ['course_name_snapshot', 'courseName']) || '-',
+    sectionNumber: getNestedValue(row, ['sectionNumber', 'section_number', 'section_no', 'sectionNo', 'group_no', 'groupNo', 'requested_course_item.group_no', 'requestedCourseItem.group_no']) || getNestedValue(requestedItem, ['group_no', 'groupNo']) || '1',
+    studentCount: getNestedValue(row, ['studentCount', 'student_count', 'requested_course_item.student_count', 'requestedCourseItem.student_count']) || getNestedValue(requestedItem, ['student_count', 'studentCount']) || 0,
+    assignedTeacher: getNestedValue(row, ['assignedTeacher', 'assigned_teacher_name', 'teacher_name', 'teacher.full_name', 'teacher.name', 'primary_teacher.full_name']) || buildTeacherName(teacherData),
+    mqa3Status: normalizeDocumentStatus(getNestedValue(row, ['mqa3Status', 'mqa3_status', 'tqf3Status', 'tqf3_status', 'mqa3.status', 'tqf3.status'])),
+    mqa5Status: normalizeDocumentStatus(getNestedValue(row, ['mqa5Status', 'mqa5_status', 'tqf5Status', 'tqf5_status', 'mqa5.status', 'tqf5.status'])),
+    rawData: row,
+  }
+}
+
+function getOpeningMatchScore(assignedRow, openingCourse) {
+  let score = 0
+  const assignedRequestedItemId = normalizeText(assignedRow.requestedCourseItemId)
+  const assignedRequestId = normalizeText(assignedRow.requestId)
+  const assignedCourseId = normalizeText(assignedRow.courseId)
+  const assignedCourseCode = normalizeCompareText(assignedRow.courseCode)
+  const assignedCourseName = normalizeCompareText(assignedRow.courseName)
+  const assignedGroupNo = normalizeText(assignedRow.sectionNumber)
+  const assignedSemester = normalizeText(assignedRow.semester)
+  const assignedAcademicYear = normalizeText(assignedRow.academicYear)
+  const assignedCurriculumName = normalizeCompareText(assignedRow.curriculumName)
+  const assignedMajorName = normalizeCompareText(assignedRow.majorName)
+  const openingRequestedItemId = normalizeText(openingCourse.id)
+  const openingRequestId = normalizeText(openingCourse.requestId)
+  const openingCourseId = normalizeText(openingCourse.courseId)
+  const openingCourseCode = normalizeCompareText(openingCourse.courseCode)
+  const openingCourseName = normalizeCompareText(openingCourse.courseName)
+  const openingGroupNo = normalizeText(openingCourse.groupNo)
+  const openingSemester = normalizeText(openingCourse.semester)
+  const openingAcademicYear = normalizeText(openingCourse.academicYear)
+  const openingCurriculumName = normalizeCompareText(openingCourse.curriculumName)
+  const openingMajorName = normalizeCompareText(openingCourse.majorName)
+
+  if (assignedRequestedItemId && openingRequestedItemId && assignedRequestedItemId === openingRequestedItemId) score += 1000
+  if (assignedRequestId && openingRequestId && assignedRequestId === openingRequestId) score += 250
+  if (assignedCourseId && openingCourseId && assignedCourseId === openingCourseId) score += 180
+  if (assignedCourseCode && openingCourseCode && assignedCourseCode === openingCourseCode) score += 160
+  if (assignedCourseName && openingCourseName && assignedCourseName === openingCourseName) score += 70
+  if (assignedGroupNo && openingGroupNo && assignedGroupNo === openingGroupNo) score += 35
+  if (assignedSemester && openingSemester && assignedSemester === openingSemester) score += 45
+  if (assignedAcademicYear && openingAcademicYear && assignedAcademicYear === openingAcademicYear) score += 45
+  if (assignedCurriculumName && openingCurriculumName && (assignedCurriculumName === openingCurriculumName || assignedCurriculumName.includes(openingCurriculumName) || openingCurriculumName.includes(assignedCurriculumName))) score += 35
+  if (assignedMajorName && openingMajorName && (assignedMajorName === openingMajorName || assignedMajorName.includes(openingMajorName) || openingMajorName.includes(assignedMajorName))) score += 25
+
+  if (!assignedCourseId && !assignedCourseCode && !assignedCourseName && !assignedRequestedItemId && !assignedRequestId) return 0
+  return score
+}
+
+function findBestOpeningCourseMatch(assignedRow, openingCourseRows) {
+  const matchedList = openingCourseRows.map((openingCourse) => ({ openingCourse, score: getOpeningMatchScore(assignedRow, openingCourse) })).filter((item) => item.score >= 160).sort((a, b) => b.score - a.score)
+  return matchedList[0]?.openingCourse ?? null
+}
+
+function normalizeAssignedCourseRow(row, index, openingCourseRows = []) {
+  const baseRow = normalizeAssignedCourseBaseRow(row, index)
+  if (baseRow.level) return baseRow
+  const matchedOpeningCourse = findBestOpeningCourseMatch(baseRow, openingCourseRows)
+  return { ...baseRow, level: matchedOpeningCourse?.level || '', openingRequestId: matchedOpeningCourse?.requestId || '', openingRequestStatus: matchedOpeningCourse?.requestStatus || '', openingCourseItemId: matchedOpeningCourse?.id || '' }
+}
 
 function getLevelLabel(level) {
   if (level === 'bachelor') return 'ปริญญาตรี'
@@ -120,72 +271,55 @@ function getLevelBadgeClassName(level) {
 
 function getSemesterLabel(semester) {
   if (semester === 'summer') return 'ภาคฤดูร้อน'
+  if (!semester) return 'ไม่ระบุภาคการศึกษา'
   return `ภาคการศึกษา ${semester}`
 }
 
 function getDocumentStatusConfig(status) {
-  if (status === 'submitted') {
-    return {
-      label: 'ส่งแล้ว',
-      className: styles.statusSubmitted,
-    }
-  }
-
-  if (status === 'draft') {
-    return {
-      label: 'แบบร่าง',
-      className: styles.statusDraft,
-    }
-  }
-
-  if (status === 'waitingGrade') {
-    return {
-      label: 'รอหลังเกรดออก',
-      className: styles.statusWaiting,
-    }
-  }
-
-  return {
-    label: 'ยังไม่เริ่ม',
-    className: styles.statusPending,
-  }
+  if (status === 'submitted') return { label: 'ส่งแล้ว', className: styles.statusSubmitted }
+  if (status === 'draft') return { label: 'แบบร่าง', className: styles.statusDraft }
+  if (status === 'waitingGrade') return { label: 'รอหลังเกรดออก', className: styles.statusWaiting }
+  if (status === 'rejected') return { label: 'ตีกลับ', className: styles.statusPending }
+  return { label: 'ยังไม่เริ่ม', className: styles.statusPending }
 }
 
 function MyAssignedCoursesPage() {
-  const [courseRows] = useState(mockAssignedCourseRows)
+  const apiUrl = import.meta.env.VITE_API_URL
+  const [courseRows, setCourseRows] = useState([])
   const [searchText, setSearchText] = useState('')
   const [semesterFilter, setSemesterFilter] = useState('all')
   const [documentFilter, setDocumentFilter] = useState('all')
   const [selectedCourseItem, setSelectedCourseItem] = useState(null)
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false)
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false)
+  const [courseErrorMessage, setCourseErrorMessage] = useState('')
+
+  const fetchAssignedCourses = useCallback(async () => {
+    setIsLoadingCourses(true)
+    setCourseErrorMessage('')
+    try {
+      const [assignedResponse, openingCourseRows] = await Promise.all([axios.get(`${apiUrl}${ASSIGNED_COURSES_ENDPOINT}`, getAuthConfig()), fetchCourseOpeningCourseRows(apiUrl)])
+      const assignedRows = getResponseList(assignedResponse.data, ['courses', 'assignedCourses', 'assignments', 'items', 'data', 'results'])
+      const nextRows = assignedRows.map((item, index) => normalizeAssignedCourseRow(item, index, openingCourseRows))
+      setCourseRows(nextRows)
+    } catch (error) {
+      console.error('Error fetching assigned courses:', error)
+      setCourseRows([])
+      setCourseErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงข้อมูลรายวิชาที่ได้รับมอบหมายได้'))
+    } finally {
+      setIsLoadingCourses(false)
+    }
+  }, [apiUrl])
+
+  useEffect(() => { fetchAssignedCourses() }, [fetchAssignedCourses])
 
   const filteredCourseRows = useMemo(() => {
     const normalizedSearchText = searchText.trim().toLowerCase()
-
     return courseRows.filter((item) => {
-      const matchedSemester =
-        semesterFilter === 'all' ? true : item.semester === semesterFilter
-
-      const matchedDocument =
-        documentFilter === 'all'
-          ? true
-          : documentFilter === 'mqa3Pending'
-            ? item.mqa3Status === 'notStarted' || item.mqa3Status === 'draft'
-            : documentFilter === 'mqa5Pending'
-              ? item.mqa5Status === 'notStarted' || item.mqa5Status === 'draft'
-              : documentFilter === 'completed'
-                ? item.mqa3Status === 'submitted' && item.mqa5Status === 'submitted'
-                : true
-
-      const matchedSearch =
-        normalizedSearchText.length === 0 ||
-        item.courseCode.toLowerCase().includes(normalizedSearchText) ||
-        item.courseName.toLowerCase().includes(normalizedSearchText) ||
-        item.curriculumName.toLowerCase().includes(normalizedSearchText) ||
-        item.majorName.toLowerCase().includes(normalizedSearchText) ||
-        getLevelLabel(item.level).toLowerCase().includes(normalizedSearchText) ||
-        item.assignedTeacher.toLowerCase().includes(normalizedSearchText)
-
+      const matchedSemester = semesterFilter === 'all' ? true : item.semester === semesterFilter
+      const matchedDocument = documentFilter === 'all' ? true : documentFilter === 'mqa3Pending' ? item.mqa3Status === 'notStarted' || item.mqa3Status === 'draft' || item.mqa3Status === 'rejected' : documentFilter === 'mqa5Pending' ? item.mqa5Status === 'notStarted' || item.mqa5Status === 'draft' || item.mqa5Status === 'rejected' : documentFilter === 'completed' ? item.mqa3Status === 'submitted' && item.mqa5Status === 'submitted' : true
+      const searchSource = `${item.courseCode} ${item.courseName} ${item.curriculumName} ${item.majorName} ${getLevelLabel(item.level)} ${item.assignedTeacher} ${getSemesterLabel(item.semester)} ${item.academicYear}`.toLowerCase()
+      const matchedSearch = normalizedSearchText.length === 0 || searchSource.includes(normalizedSearchText)
       return matchedSemester && matchedDocument && matchedSearch
     })
   }, [courseRows, documentFilter, searchText, semesterFilter])
@@ -232,41 +366,16 @@ function MyAssignedCoursesPage() {
           </Box>
 
           <Box className={styles.filterGrid}>
-            <TextField
-              fullWidth
-              label="ค้นหารายวิชา"
-              placeholder="ค้นหาจากรหัสวิชา / ชื่อรายวิชา / หลักสูตร / สาขา"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchRoundedIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <TextField fullWidth label="ค้นหารายวิชา" placeholder="ค้นหาจากรหัสวิชา / ชื่อรายวิชา / หลักสูตร / สาขา" value={searchText} onChange={(event) => setSearchText(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon /></InputAdornment> }} />
 
-            <TextField
-              select
-              fullWidth
-              label="ภาคการศึกษา"
-              value={semesterFilter}
-              onChange={(event) => setSemesterFilter(event.target.value)}
-            >
+            <TextField select fullWidth label="ภาคการศึกษา" value={semesterFilter} onChange={(event) => setSemesterFilter(event.target.value)}>
               <MenuItem value="all">ทั้งหมด</MenuItem>
               <MenuItem value="1">ภาคการศึกษา 1</MenuItem>
               <MenuItem value="2">ภาคการศึกษา 2</MenuItem>
               <MenuItem value="summer">ภาคฤดูร้อน</MenuItem>
             </TextField>
 
-            <TextField
-              select
-              fullWidth
-              label="สถานะเอกสาร"
-              value={documentFilter}
-              onChange={(event) => setDocumentFilter(event.target.value)}
-            >
+            <TextField select fullWidth label="สถานะเอกสาร" value={documentFilter} onChange={(event) => setDocumentFilter(event.target.value)}>
               <MenuItem value="all">ทั้งหมด</MenuItem>
               <MenuItem value="mqa3Pending">มคอ.3 ที่ยังต้องดำเนินการ</MenuItem>
               <MenuItem value="mqa5Pending">มคอ.5 ที่ยังต้องดำเนินการ</MenuItem>
@@ -286,10 +395,7 @@ function MyAssignedCoursesPage() {
               </Typography>
             </Box>
 
-            <Chip
-              label={`พบ ${filteredCourseRows.length} รายการ`}
-              className={styles.resultChip}
-            />
+            <Chip label={`พบ ${filteredCourseRows.length} รายการ`} className={styles.resultChip} />
           </Box>
 
           <TableContainer className={styles.tableContainer}>
@@ -307,16 +413,43 @@ function MyAssignedCoursesPage() {
               </TableHead>
 
               <TableBody>
-                {filteredCourseRows.map((item) => {
+                {isLoadingCourses && (
+                  <TableRow>
+                    <TableCell colSpan={7} className={styles.emptyTableCell}>
+                      <Box className={styles.emptyState}>
+                        <CircularProgress size={28} />
+                        <Typography className={styles.emptyStateDescription}>
+                          กำลังโหลดข้อมูลรายวิชาที่ได้รับมอบหมาย...
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {!isLoadingCourses && courseErrorMessage && (
+                  <TableRow>
+                    <TableCell colSpan={7} className={styles.emptyTableCell}>
+                      <Box className={styles.emptyState}>
+                        <DescriptionRoundedIcon className={styles.emptyStateIcon} />
+                        <Typography className={styles.emptyStateTitle}>
+                          ยังไม่สามารถโหลดรายวิชาได้
+                        </Typography>
+                        <Typography className={styles.emptyStateDescription}>
+                          {courseErrorMessage}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {!isLoadingCourses && !courseErrorMessage && filteredCourseRows.map((item) => {
                   const mqa3Status = getDocumentStatusConfig(item.mqa3Status)
                   const mqa5Status = getDocumentStatusConfig(item.mqa5Status)
 
                   return (
                     <TableRow key={item.id} className={styles.tableBodyRow}>
                       <TableCell className={styles.bodyCell}>
-                        <Box
-                          className={`${styles.levelBadge} ${getLevelBadgeClassName(item.level)}`}
-                        >
+                        <Box className={`${styles.levelBadge} ${getLevelBadgeClassName(item.level)}`}>
                           <SchoolRoundedIcon fontSize="small" />
                           <span>{getLevelLabel(item.level)}</span>
                         </Box>
@@ -340,7 +473,7 @@ function MyAssignedCoursesPage() {
                             {item.courseName}
                           </Typography>
                           <Typography className={styles.courseMeta}>
-                            {item.curriculumName} • สาขา{item.majorName} • {getSemesterLabel(item.semester)}/{item.academicYear}
+                            {item.curriculumName} • สาขา{item.majorName} • {getSemesterLabel(item.semester)}/{item.academicYear || '-'}
                           </Typography>
                           <Typography className={styles.teacherMeta}>
                             ผู้รับผิดชอบรายวิชา: {item.assignedTeacher}
@@ -354,7 +487,7 @@ function MyAssignedCoursesPage() {
                             กลุ่ม {item.sectionNumber}
                           </Typography>
                           <Box className={styles.studentCountPill}>
-                            {item.studentCount} คน
+                            {item.studentCount || 0} คน
                           </Box>
                         </Box>
                       </TableCell>
@@ -365,33 +498,20 @@ function MyAssignedCoursesPage() {
                             <Typography className={styles.documentLabel}>
                               มคอ.3
                             </Typography>
-                            <Chip
-                              label={mqa3Status.label}
-                              className={mqa3Status.className}
-                              size="small"
-                            />
+                            <Chip label={mqa3Status.label} className={mqa3Status.className} size="small" />
                           </Box>
 
                           <Box className={styles.documentStatusItem}>
                             <Typography className={styles.documentLabel}>
                               มคอ.5
                             </Typography>
-                            <Chip
-                              label={mqa5Status.label}
-                              className={mqa5Status.className}
-                              size="small"
-                            />
+                            <Chip label={mqa5Status.label} className={mqa5Status.className} size="small" />
                           </Box>
                         </Box>
                       </TableCell>
 
                       <TableCell className={styles.bodyCell}>
-                        <Button
-                          variant="contained"
-                          startIcon={<AssignmentTurnedInRoundedIcon />}
-                          className={styles.primaryButton}
-                          onClick={() => handleOpenDocumentDialog(item)}
-                        >
+                        <Button variant="contained" startIcon={<AssignmentTurnedInRoundedIcon />} className={styles.primaryButton} onClick={() => handleOpenDocumentDialog(item)}>
                           เลือกเอกสาร
                         </Button>
                       </TableCell>
@@ -399,7 +519,7 @@ function MyAssignedCoursesPage() {
                   )
                 })}
 
-                {!filteredCourseRows.length && (
+                {!isLoadingCourses && !courseErrorMessage && !filteredCourseRows.length && (
                   <TableRow>
                     <TableCell colSpan={7} className={styles.emptyTableCell}>
                       <Box className={styles.emptyState}>
@@ -420,11 +540,7 @@ function MyAssignedCoursesPage() {
         </Box>
       </Box>
 
-      <DocumentSelectDialog
-        open={isDocumentDialogOpen}
-        onClose={handleCloseDocumentDialog}
-        courseItem={selectedCourseItem}
-      />
+      <DocumentSelectDialog open={isDocumentDialogOpen} onClose={handleCloseDocumentDialog} courseItem={selectedCourseItem} />
     </Box>
   )
 }
