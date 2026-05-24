@@ -583,5 +583,4 @@ function mqa3Insert1Page() {
     </Box>
   )
 }
-
 export default mqa3Insert1Page
