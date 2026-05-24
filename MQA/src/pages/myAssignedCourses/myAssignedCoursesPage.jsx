@@ -25,6 +25,8 @@ import styles from './myAssignedCoursesPage.module.css'
 
 const ASSIGNED_COURSES_ENDPOINT = '/course-assignment/my-primary-courses'
 const COURSE_OPENING_ENDPOINT = '/course-opening/'
+const TQF3_ENDPOINT = '/tqf3/'
+const TQF5_ENDPOINT = '/tqf5/'
 
 const getAuthConfig = () => {
   const token = localStorage.getItem('mqa_token')
@@ -33,6 +35,7 @@ const getAuthConfig = () => {
 
 const normalizeText = (value) => String(value ?? '').trim()
 const normalizeCompareText = (value) => normalizeText(value).toLowerCase().replace(/[\s\-_./]+/g, '')
+const getApiUrl = (apiUrl, path) => `${String(apiUrl || '').replace(/\/$/, '')}${path}`
 
 const getResponseList = (data, keyList = []) => {
   if (Array.isArray(data)) return data
@@ -161,6 +164,16 @@ async function fetchCourseOpeningCourseRows(apiUrl) {
   return requestList.flatMap((requestItem) => requestItem.requestedCourses.map((course) => ({ ...course, requestStatus: requestItem.status, requestRawData: requestItem.rawData })))
 }
 
+async function fetchTqfDocumentRows(apiUrl, endpoint, documentType) {
+  try {
+    const response = await axios.get(getApiUrl(apiUrl, endpoint), getAuthConfig())
+    return getResponseList(response.data, ['items', 'data', 'results', 'tqf3', 'tqf5', 'documents']).map((item, index) => normalizeTqfDocumentRow(item, documentType, index))
+  } catch (error) {
+    console.warn(`Cannot fetch ${documentType} documents:`, error)
+    return []
+  }
+}
+
 function buildTeacherName(teacherData, fallback = '') {
   const directName = getNestedValue(teacherData, ['full_name', 'fullName', 'name', 'display_name', 'displayName', 'teacher_name', 'teacherName'])
   if (directName) return directName
@@ -169,6 +182,22 @@ function buildTeacherName(teacherData, fallback = '') {
   const lastName = getNestedValue(teacherData, ['last_name', 'lastName', 'lastname', 'surname', 'family_name', 'familyName'])
   const builtName = normalizeText(`${prefix} ${firstName} ${lastName}`)
   return builtName || fallback || '-'
+}
+
+function normalizeTqfDocumentRow(row, documentType, index) {
+  return {
+    id: getNestedValue(row, ['id', 'tqf3_id', 'tqf3Id', 'tqf5_id', 'tqf5Id']) || `${documentType}-${index}`,
+    documentType,
+    requestedCourseItemId: normalizeText(getNestedValue(row, ['requested_course_item_id', 'requestedCourseItemId', 'opening_course_item_id', 'openingCourseItemId', 'course_item_id', 'courseItemId'])),
+    courseId: normalizeText(getNestedValue(row, ['course_id', 'courseId', 'course.id'])),
+    courseCode: normalizeText(getNestedValue(row, ['course_code_snap', 'courseCodeSnap', 'course_code', 'courseCode', 'course.course_code', 'course.courseCode'])),
+    semester: String(getNestedValue(row, ['semester', 'term']) || ''),
+    academicYear: String(getNestedValue(row, ['academic_year', 'academicYear', 'year']) || ''),
+    sectionNumber: String(getNestedValue(row, ['section_group', 'sectionGroup', 'section_number', 'sectionNumber', 'group_no', 'groupNo']) || ''),
+    status: normalizeDocumentStatus(getNestedValue(row, ['status', 'document_status', 'documentStatus'])),
+    submittedAt: getNestedValue(row, ['submitted_at', 'submittedAt', 'updated_at', 'updatedAt']) || null,
+    rawData: row,
+  }
 }
 
 function normalizeAssignedCourseBaseRow(row, index) {
@@ -187,6 +216,7 @@ function normalizeAssignedCourseBaseRow(row, index) {
     id: getNestedValue(row, ['id', 'assignment_id', 'assignmentId', 'requested_course_item_id', 'requestedCourseItemId']) || `assigned-${index}`,
     requestId,
     requestedCourseItemId,
+    openingCourseItemId: requestedCourseItemId,
     level: directLevel,
     curriculumName,
     majorName: getNestedValue(row, ['majorName', 'major_name', 'department_name', 'departmentName', 'request.major_name', 'course_opening_request.major_name', 'courseOpeningRequest.major_name', 'opening_request.major_name', 'openingRequest.major_name', 'requested_course_item.request.major_name', 'requestedCourseItem.request.major_name']) || getNestedValue(requestData, ['major_name', 'majorName']) || '-',
@@ -199,8 +229,12 @@ function normalizeAssignedCourseBaseRow(row, index) {
     sectionNumber: getNestedValue(row, ['sectionNumber', 'section_number', 'section_no', 'sectionNo', 'group_no', 'groupNo', 'requested_course_item.group_no', 'requestedCourseItem.group_no']) || getNestedValue(requestedItem, ['group_no', 'groupNo']) || '1',
     studentCount: getNestedValue(row, ['studentCount', 'student_count', 'requested_course_item.student_count', 'requestedCourseItem.student_count']) || getNestedValue(requestedItem, ['student_count', 'studentCount']) || 0,
     assignedTeacher: getNestedValue(row, ['assignedTeacher', 'assigned_teacher_name', 'teacher_name', 'teacher.full_name', 'teacher.name', 'primary_teacher.full_name']) || buildTeacherName(teacherData),
+    mqa3Id: getNestedValue(row, ['mqa3Id', 'mqa3_id', 'tqf3Id', 'tqf3_id', 'mqa3.id', 'tqf3.id']) || '',
     mqa3Status: normalizeDocumentStatus(getNestedValue(row, ['mqa3Status', 'mqa3_status', 'tqf3Status', 'tqf3_status', 'mqa3.status', 'tqf3.status'])),
+    mqa3SubmittedAt: getNestedValue(row, ['mqa3SubmittedAt', 'mqa3_submitted_at', 'tqf3SubmittedAt', 'tqf3_submitted_at', 'mqa3.submitted_at', 'tqf3.submitted_at']) || null,
+    mqa5Id: getNestedValue(row, ['mqa5Id', 'mqa5_id', 'tqf5Id', 'tqf5_id', 'mqa5.id', 'tqf5.id']) || '',
     mqa5Status: normalizeDocumentStatus(getNestedValue(row, ['mqa5Status', 'mqa5_status', 'tqf5Status', 'tqf5_status', 'mqa5.status', 'tqf5.status'])),
+    mqa5SubmittedAt: getNestedValue(row, ['mqa5SubmittedAt', 'mqa5_submitted_at', 'tqf5SubmittedAt', 'tqf5_submitted_at', 'mqa5.submitted_at', 'tqf5.submitted_at']) || null,
     rawData: row,
   }
 }
@@ -250,9 +284,42 @@ function findBestOpeningCourseMatch(assignedRow, openingCourseRows) {
 
 function normalizeAssignedCourseRow(row, index, openingCourseRows = []) {
   const baseRow = normalizeAssignedCourseBaseRow(row, index)
-  if (baseRow.level) return baseRow
-  const matchedOpeningCourse = findBestOpeningCourseMatch(baseRow, openingCourseRows)
-  return { ...baseRow, level: matchedOpeningCourse?.level || '', openingRequestId: matchedOpeningCourse?.requestId || '', openingRequestStatus: matchedOpeningCourse?.requestStatus || '', openingCourseItemId: matchedOpeningCourse?.id || '' }
+  const matchedOpeningCourse = baseRow.level ? null : findBestOpeningCourseMatch(baseRow, openingCourseRows)
+  return { ...baseRow, level: baseRow.level || matchedOpeningCourse?.level || '', openingRequestId: matchedOpeningCourse?.requestId || baseRow.requestId || '', openingRequestStatus: matchedOpeningCourse?.requestStatus || '', openingCourseItemId: matchedOpeningCourse?.id || baseRow.requestedCourseItemId || '' }
+}
+
+function getDocumentMatchScore(courseItem, documentRow) {
+  let score = 0
+  const courseRequestedItemId = normalizeText(courseItem.openingCourseItemId || courseItem.requestedCourseItemId)
+  const documentRequestedItemId = normalizeText(documentRow.requestedCourseItemId)
+  const courseIdMatched = normalizeText(courseItem.courseId) && normalizeText(documentRow.courseId) && normalizeText(courseItem.courseId) === normalizeText(documentRow.courseId)
+  const courseCodeMatched = normalizeCompareText(courseItem.courseCode) && normalizeCompareText(documentRow.courseCode) && normalizeCompareText(courseItem.courseCode) === normalizeCompareText(documentRow.courseCode)
+
+  if (courseRequestedItemId && documentRequestedItemId && courseRequestedItemId === documentRequestedItemId) score += 1000
+  if (courseIdMatched) score += 100
+  if (courseCodeMatched) score += 80
+
+  return score
+}
+
+function findMatchingDocument(courseItem, documentRows) {
+  const matchedRows = documentRows.map((documentRow) => ({ documentRow, score: getDocumentMatchScore(courseItem, documentRow) })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || Number(b.documentRow.id) - Number(a.documentRow.id))
+  return matchedRows[0]?.documentRow || null
+}
+
+function mergeAssignedCourseWithDocuments(courseItem, tqf3Rows, tqf5Rows) {
+  const tqf3Document = findMatchingDocument(courseItem, tqf3Rows)
+  const tqf5Document = findMatchingDocument(courseItem, tqf5Rows)
+
+  return {
+    ...courseItem,
+    mqa3Id: tqf3Document?.id || courseItem.mqa3Id || '',
+    mqa3Status: tqf3Document?.status || courseItem.mqa3Status || 'notStarted',
+    mqa3SubmittedAt: tqf3Document?.submittedAt || courseItem.mqa3SubmittedAt || null,
+    mqa5Id: tqf5Document?.id || courseItem.mqa5Id || '',
+    mqa5Status: tqf5Document?.status || courseItem.mqa5Status || 'notStarted',
+    mqa5SubmittedAt: tqf5Document?.submittedAt || courseItem.mqa5SubmittedAt || null,
+  }
 }
 
 function getLevelLabel(level) {
@@ -277,7 +344,7 @@ function getSemesterLabel(semester) {
 
 function getDocumentStatusConfig(status) {
   if (status === 'submitted') return { label: 'ส่งแล้ว', className: styles.statusSubmitted }
-  if (status === 'draft') return { label: 'แบบร่าง', className: styles.statusDraft }
+  if (status === 'draft') return { label: 'บันทึกแล้ว', className: styles.statusDraft }
   if (status === 'waitingGrade') return { label: 'รอหลังเกรดออก', className: styles.statusWaiting }
   if (status === 'rejected') return { label: 'ตีกลับ', className: styles.statusPending }
   return { label: 'ยังไม่เริ่ม', className: styles.statusPending }
@@ -298,9 +365,14 @@ function MyAssignedCoursesPage() {
     setIsLoadingCourses(true)
     setCourseErrorMessage('')
     try {
-      const [assignedResponse, openingCourseRows] = await Promise.all([axios.get(`${apiUrl}${ASSIGNED_COURSES_ENDPOINT}`, getAuthConfig()), fetchCourseOpeningCourseRows(apiUrl)])
+      const [assignedResponse, openingCourseRows, tqf3Rows, tqf5Rows] = await Promise.all([
+        axios.get(`${apiUrl}${ASSIGNED_COURSES_ENDPOINT}`, getAuthConfig()),
+        fetchCourseOpeningCourseRows(apiUrl),
+        fetchTqfDocumentRows(apiUrl, TQF3_ENDPOINT, 'mqa3'),
+        fetchTqfDocumentRows(apiUrl, TQF5_ENDPOINT, 'mqa5'),
+      ])
       const assignedRows = getResponseList(assignedResponse.data, ['courses', 'assignedCourses', 'assignments', 'items', 'data', 'results'])
-      const nextRows = assignedRows.map((item, index) => normalizeAssignedCourseRow(item, index, openingCourseRows))
+      const nextRows = assignedRows.map((item, index) => normalizeAssignedCourseRow(item, index, openingCourseRows)).map((item) => mergeAssignedCourseWithDocuments(item, tqf3Rows, tqf5Rows))
       setCourseRows(nextRows)
     } catch (error) {
       console.error('Error fetching assigned courses:', error)
@@ -332,6 +404,7 @@ function MyAssignedCoursesPage() {
   const handleCloseDocumentDialog = () => {
     setIsDocumentDialogOpen(false)
     setSelectedCourseItem(null)
+    fetchAssignedCourses()
   }
 
   return (
