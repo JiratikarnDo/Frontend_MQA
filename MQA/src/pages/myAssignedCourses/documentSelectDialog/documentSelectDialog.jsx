@@ -65,11 +65,17 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
     return { id, status, label: 'มคอ.5', documentType: 'mqa5' }
   }
 
+  const isMqa3Saved = () => {
+    const mqa3Info = getDocumentInfo('mqa3')
+    return Boolean(mqa3Info.id) && mqa3Info.status !== 'notStarted'
+  }
+
   const canOpenDocument = (documentType) => {
     const documentInfo = getDocumentInfo(documentType)
     if (!courseItem?.level) return false
     if (documentInfo.status === 'submitted') return false
     if (documentInfo.status === 'waitingGrade') return false
+    if (documentType === 'mqa5' && !isMqa3Saved()) return false
     return true
   }
 
@@ -77,11 +83,13 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
     const documentInfo = getDocumentInfo(documentType)
     if (documentInfo.status === 'submitted') return 'submittedLocked'
     if (documentInfo.status === 'waitingGrade') return 'waitingGradeLocked'
+    if (documentType === 'mqa5' && !isMqa3Saved()) return 'mqa3RequiredLocked'
     return documentInfo.id ? 'edit' : 'create'
   }
 
   const getButtonText = (documentType) => {
     const documentInfo = getDocumentInfo(documentType)
+    if (documentType === 'mqa5' && !isMqa3Saved()) return 'ต้องบันทึก มคอ.3 ก่อน'
     if (documentInfo.status === 'submitted') return `${documentInfo.label} ส่งแล้ว ไม่สามารถแก้ไขได้`
     if (documentInfo.status === 'waitingGrade') return `ยังไม่สามารถจัดทำ ${documentInfo.label} ได้`
     if (documentInfo.status === 'draft') return `แก้ไขเอกสาร ${documentInfo.label}`
@@ -91,18 +99,20 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
   const getOptionDescription = (documentType) => {
     const documentInfo = getDocumentInfo(documentType)
+    if (documentType === 'mqa5' && !isMqa3Saved()) return 'ต้องมีการบันทึกเอกสาร มคอ.3 ของรายวิชานี้ก่อน จึงจะสามารถจัดทำ มคอ.5 ได้'
     if (documentInfo.status === 'submitted') return `เอกสาร ${documentInfo.label} ถูกส่งเข้าระบบแล้ว จึงไม่สามารถแก้ไขจากหน้านี้ได้`
     if (documentInfo.status === 'waitingGrade') return `เอกสาร ${documentInfo.label} ยังไม่พร้อมให้จัดทำในตอนนี้`
     if (documentInfo.status === 'draft') return `เอกสาร ${documentInfo.label} ถูกบันทึกไว้แล้ว หากเข้าไปครั้งนี้จะเป็นการแก้ไขแบบร่างเดิม`
     if (documentInfo.status === 'rejected') return `เอกสาร ${documentInfo.label} ถูกตีกลับ สามารถเข้าไปแก้ไขเอกสารเดิมได้`
     if (documentType === 'mqa3') return 'ใช้สำหรับจัดทำแผนการสอนและรายละเอียดรายวิชาก่อนเปิดภาคการศึกษา'
-    return 'ใช้สำหรับสรุปผลการเรียนการสอนและผลลัพธ์หลังจบรายวิชาเมื่อเกรดออกแล้ว'
+    return 'ใช้สำหรับสรุปผลการเรียนการสอนและผลลัพธ์หลังจบรายวิชา โดยอ้างอิงข้อมูลตั้งต้นจาก มคอ.3'
   }
 
   const buildNavigationState = (documentType) => {
     const mqa3Info = getDocumentInfo('mqa3')
     const mqa5Info = getDocumentInfo('mqa5')
     const selectedDocumentInfo = getDocumentInfo(documentType)
+    const hasMqa3Reference = Boolean(mqa3Info.id) && mqa3Info.status !== 'notStarted'
 
     return {
       documentType,
@@ -110,6 +120,13 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
       isExistingDocument: Boolean(selectedDocumentInfo.id),
       selectedDocumentId: selectedDocumentInfo.id,
       selectedDocumentStatus: selectedDocumentInfo.status,
+      hasMqa3Reference,
+      sourceMqa3Id: mqa3Info.id,
+      sourceTqf3Id: mqa3Info.id,
+      referenceMqa3Id: mqa3Info.id,
+      referenceTqf3Id: mqa3Info.id,
+      referenceMqa3Status: mqa3Info.status,
+      referenceTqf3Status: mqa3Info.status,
       courseItem,
       assignmentId: courseItem?.id ?? '',
       level: courseItem?.level ?? '',
@@ -231,9 +248,9 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
               <Typography className={styles.optionTitle}>
-                {mqa5Info.status === 'submitted' ? 'มคอ.5 ส่งแล้ว' : mqa5Info.id ? 'แก้ไข มคอ.5' : 'กรอก มคอ.5'}
+                {!isMqa3Saved() ? 'มคอ.5 รอ มคอ.3' : mqa5Info.status === 'submitted' ? 'มคอ.5 ส่งแล้ว' : mqa5Info.id ? 'แก้ไข มคอ.5' : 'กรอก มคอ.5'}
               </Typography>
-              <Chip label={getDocumentStatusLabel(mqa5Info.status)} size="small" sx={getDocumentStatusChipSx(mqa5Info.status)} />
+              <Chip label={!isMqa3Saved() ? 'รอ มคอ.3' : getDocumentStatusLabel(mqa5Info.status)} size="small" sx={!isMqa3Saved() ? getDocumentStatusChipSx('waitingGrade') : getDocumentStatusChipSx(mqa5Info.status)} />
             </Box>
 
             <Typography className={styles.optionDescription}>
