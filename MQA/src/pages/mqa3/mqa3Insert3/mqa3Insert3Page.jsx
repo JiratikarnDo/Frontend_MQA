@@ -10,6 +10,7 @@ import Mqa3FormNav from '../../../components/mqa3/mqa3FormNav'
 import styles from './mqa3Insert3Page.module.css'
 
 const COURSE_ENDPOINT = '/course/'
+const TQF3_ENDPOINT = '/tqf3'
 const MQA3_ACTIVE_DRAFT_KEY = 'mqa3ActiveDraftKey'
 const initialFormValue = { lectureHours: '', practiceHours: '', selfStudyHours: '', contactChannel: '' }
 const initialDev14Rows = [{ clo: '', teachStrategy: '', assessStrategy: '' }]
@@ -18,6 +19,7 @@ const hasObjectData = (value) => Boolean(value && typeof value === 'object' && O
 const hasText = (value) => normalizeText(value) !== ''
 const getAuthConfig = () => { const token = localStorage.getItem('mqa_token'); return { headers: token ? { Authorization: `Bearer ${token}` } : {} } }
 const getResponseObject = (data) => { if (Array.isArray(data)) return data[0] ?? null; if (data?.course && typeof data.course === 'object') return data.course; if (data?.data && typeof data.data === 'object') return data.data; if (data?.item && typeof data.item === 'object') return data.item; if (data?.result && typeof data.result === 'object') return data.result; return data }
+const getResponseList = (data, keyList = []) => { if (Array.isArray(data)) return data; for (const key of keyList) { const value = key.split('.').reduce((current, part) => current?.[part], data); if (Array.isArray(value)) return value } if (Array.isArray(data?.data)) return data.data; if (Array.isArray(data?.items)) return data.items; if (Array.isArray(data?.results)) return data.results; return [] }
 const safeReadJson = (key) => { try { const rawValue = sessionStorage.getItem(key); return rawValue ? JSON.parse(rawValue) : null } catch (error) { return null } }
 const safeWriteJson = (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)) } catch (error) { console.warn('Cannot write MQA3 draft to sessionStorage:', error) } }
 const getActiveDraftKey = () => { try { return sessionStorage.getItem(MQA3_ACTIVE_DRAFT_KEY) || '' } catch (error) { return '' } }
@@ -32,7 +34,15 @@ const getCloListFromPage2 = (navigationState = {}, savedDraft = {}) => normalize
 const syncDev14RowsWithCloList = (currentRows = [], cloList = []) => { const safeRows = Array.isArray(currentRows) && currentRows.length > 0 ? currentRows : initialDev14Rows; const cleanCloList = normalizeCloList(cloList); if (cleanCloList.length === 0) return safeRows; const rowMapByClo = new Map(); safeRows.forEach((row) => { const rowClo = normalizeText(row?.clo); if (rowClo && !rowMapByClo.has(rowClo)) rowMapByClo.set(rowClo, row) }); return cleanCloList.map((clo, index) => { const matchedRow = rowMapByClo.get(clo) || safeRows[index] || {}; return { clo, teachStrategy: matchedRow.teachStrategy || '', assessStrategy: matchedRow.assessStrategy || '' } }) }
 const getHoursFromCourseData = (course = {}) => { const creditTextHours = parseHourFromCreditText(course?.creditText ?? course?.credit_text ?? course?.creditFormat ?? course?.credit_format ?? course?.credits ?? course?.credit); return { lectureHours: normalizeHourValue(course?.credit_lecture ?? course?.creditLecture ?? course?.lectureHours ?? course?.lecture_hours ?? course?.lecture) || creditTextHours.lectureHours || '', practiceHours: normalizeHourValue(course?.credit_lab ?? course?.creditLab ?? course?.labHours ?? course?.lab_hours ?? course?.practiceHours ?? course?.practice_hours ?? course?.practice) || creditTextHours.practiceHours || '', selfStudyHours: normalizeHourValue(course?.credit_self_study ?? course?.creditSelfStudy ?? course?.selfStudyHours ?? course?.self_study_hours ?? course?.selfStudy) || creditTextHours.selfStudyHours || '' } }
 const getCourseIdFromNavigation = (navigationState = {}, savedDraft = {}) => { const courseItem = navigationState?.courseItem || savedDraft?.navigationState?.courseItem || {}; const mqa3Insert1 = navigationState?.mqa3Insert1 || savedDraft?.mqa3Insert1 || {}; const courseDetail = mqa3Insert1?.courseDetail || {}; return navigationState?.courseId || navigationState?.course_id || courseItem?.courseId || courseItem?.course_id || courseItem?.rawData?.courseId || courseItem?.rawData?.course_id || mqa3Insert1?.courseId || mqa3Insert1?.course_id || courseDetail?.id || courseDetail?.courseId || courseDetail?.course_id || '' }
+const getTqf3DocumentId = (navigationState = {}, savedDraft = {}) => { const savedState = savedDraft?.navigationState || {}; const courseItem = navigationState?.courseItem || savedState?.courseItem || {}; const rawData = courseItem?.rawData || {}; return normalizeText(navigationState?.tqf3Id || navigationState?.tqf3_id || navigationState?.mqa3Id || navigationState?.mqa3_id || navigationState?.selectedDocumentId || navigationState?.documentId || savedState?.tqf3Id || savedState?.tqf3_id || savedState?.mqa3Id || savedState?.mqa3_id || savedState?.selectedDocumentId || savedState?.documentId || savedDraft?.tqf3Id || savedDraft?.mqa3Id || courseItem?.tqf3Id || courseItem?.mqa3Id || rawData?.tqf3Id || rawData?.mqa3Id || '') }
+const hasUsefulPage3Data = (page3Data) => { const data = page3Data || {}; const form = data?.form || data || {}; const rows = Array.isArray(data?.dev14Rows) ? data.dev14Rows : []; return hasText(form.lectureHours) || hasText(form.practiceHours) || hasText(form.selfStudyHours) || hasText(form.contactChannel) || rows.some((row) => hasText(row?.clo) || hasText(row?.teachStrategy) || hasText(row?.assessStrategy)) }
+const getTqf3CloText = (clo) => normalizeText(clo?.detail ?? clo?.clo_detail ?? clo?.description ?? clo?.description_thai ?? clo?.name ?? clo?.clo ?? clo)
+const getTqf3CloNumber = (clo, index = 0) => normalizeText(clo?.number ?? clo?.clo_number ?? clo?.cloNumber ?? clo?.order_no ?? clo?.orderNo ?? (index + 1))
+const getCloListFromTqf3Detail = (tqf3Detail = {}) => getResponseList(tqf3Detail, ['clos', 'data.clos']).map((clo, index) => getTqf3CloText(clo) || `CLO${getTqf3CloNumber(clo, index)}`).filter(Boolean)
+const buildCloLookupFromTqf3Detail = (tqf3Detail = {}) => { const lookup = new Map(); getResponseList(tqf3Detail, ['clos', 'data.clos']).forEach((clo, index) => { const cloText = getTqf3CloText(clo) || `CLO${getTqf3CloNumber(clo, index)}`; const cloNumber = getTqf3CloNumber(clo, index); if (cloNumber) { lookup.set(cloNumber, cloText); lookup.set(`CLO${cloNumber}`, cloText) } if (cloText) lookup.set(cloText, cloText) }); return lookup }
+const getDevelopmentPlanRowsFromTqf3Detail = (tqf3Detail = {}) => { const developmentPlanList = getResponseList(tqf3Detail, ['development_plans', 'developmentPlans', 'developments', 'data.development_plans']); const cloList = getCloListFromTqf3Detail(tqf3Detail); const cloLookup = buildCloLookupFromTqf3Detail(tqf3Detail); if (developmentPlanList.length) return developmentPlanList.map((item, index) => { const rawClo = normalizeText(item?.clo_number ?? item?.cloNumber ?? item?.clo ?? item?.clo_detail ?? item?.cloDetail ?? item?.number ?? ''); return { clo: cloLookup.get(rawClo) || cloLookup.get(`CLO${rawClo}`) || cloList[index] || rawClo || `CLO${index + 1}`, teachStrategy: normalizeText(item?.teaching_strategy ?? item?.teachingStrategy ?? item?.teachStrategy ?? item?.teaching ?? ''), assessStrategy: normalizeText(item?.evaluation_strategy ?? item?.evaluationStrategy ?? item?.assessStrategy ?? item?.assessment_strategy ?? item?.assessmentStrategy ?? '') } }); if (cloList.length) return cloList.map((clo) => ({ clo, teachStrategy: '', assessStrategy: '' })); return initialDev14Rows }
 const getInitialPage3Data = (navigationState = {}, savedDraft = {}) => { const statePage3 = navigationState?.mqa3Insert3 || null; const draftPage3 = savedDraft?.mqa3Insert3 || null; const page3Data = statePage3 || draftPage3 || {}; const page3Form = page3Data?.form || page3Data || {}; const page3Rows = Array.isArray(page3Data?.dev14Rows) && page3Data.dev14Rows.length > 0 ? page3Data.dev14Rows : initialDev14Rows; const page2CloList = getCloListFromPage2(navigationState, savedDraft); const mqa3Insert1 = navigationState?.mqa3Insert1 || savedDraft?.mqa3Insert1 || {}; const courseDetail = mqa3Insert1?.courseDetail || {}; const hoursFromPage1 = getHoursFromCourseData({ creditLecture: mqa3Insert1.creditLecture, creditLab: mqa3Insert1.creditLab, creditSelfStudy: mqa3Insert1.creditSelfStudy, creditText: mqa3Insert1.creditText }); const hoursFromCourseDetail = getHoursFromCourseData(courseDetail); return { form: { ...initialFormValue, lectureHours: page3Form.lectureHours || hoursFromPage1.lectureHours || hoursFromCourseDetail.lectureHours || '', practiceHours: page3Form.practiceHours || hoursFromPage1.practiceHours || hoursFromCourseDetail.practiceHours || '', selfStudyHours: page3Form.selfStudyHours || hoursFromPage1.selfStudyHours || hoursFromCourseDetail.selfStudyHours || '', contactChannel: page3Form.contactChannel || '' }, dev14Rows: syncDev14RowsWithCloList(page3Rows, page2CloList) } }
+const mapTqf3DetailToPage3Data = (tqf3Detail = {}, navigationState = {}, savedDraft = {}) => { const detail = getResponseObject(tqf3Detail) || {}; const basePage3 = getInitialPage3Data(navigationState, savedDraft); const dbRows = getDevelopmentPlanRowsFromTqf3Detail(detail); return { form: { ...basePage3.form, lectureHours: normalizeHourValue(detail?.lecture_hours ?? detail?.lectureHours ?? detail?.lecture) || basePage3.form.lectureHours || '', practiceHours: normalizeHourValue(detail?.practice_hours ?? detail?.practiceHours ?? detail?.practice) || basePage3.form.practiceHours || '', selfStudyHours: normalizeHourValue(detail?.self_study_hours ?? detail?.selfStudyHours ?? detail?.selfStudy) || basePage3.form.selfStudyHours || '', contactChannel: normalizeText(detail?.contact_detail ?? detail?.contactDetail ?? detail?.contactChannel) || basePage3.form.contactChannel || '' }, dev14Rows: dbRows.length ? dbRows : basePage3.dev14Rows } }
 
 function mqa3Insert3Page() {
   const navigate = useNavigate()
@@ -50,6 +60,30 @@ function mqa3Insert3Page() {
   const [contactPopup, setContactPopup] = useState({ open: false, value: '' })
   const [dev14Rows, setDev14Rows] = useState(initialPage3Data.dev14Rows)
   const [dev14Popup, setDev14Popup] = useState({ open: false, rowIndex: null, field: '', title: '', value: '' })
+
+  useEffect(() => { setActiveDraftKey(draftKey) }, [draftKey])
+
+  useEffect(() => {
+    let isMounted = true
+    const hydratePage3FromExistingTqf3 = async () => {
+      const tqf3Id = getTqf3DocumentId(navigationState, savedDraft)
+      if (!tqf3Id || !apiUrl) return
+      const hasExistingPage3Draft = hasUsefulPage3Data(navigationState?.mqa3Insert3) || hasUsefulPage3Data(savedDraft?.mqa3Insert3)
+      if (hasExistingPage3Draft) return
+      try {
+        const response = await axios.get(`${apiUrl}${TQF3_ENDPOINT}/${tqf3Id}`, getAuthConfig())
+        if (!isMounted) return
+        const tqf3Detail = getResponseObject(response.data)
+        const hydratedPage3 = mapTqf3DetailToPage3Data(tqf3Detail, navigationState, savedDraft)
+        const nextNavigationState = { ...(savedDraft?.navigationState || {}), ...navigationState, tqf3Id, mqa3Id: tqf3Id, selectedDocumentId: tqf3Id, mqa3DraftKey: draftKey, mqa3Insert3: hydratedPage3 }
+        setForm(hydratedPage3.form)
+        setDev14Rows(hydratedPage3.dev14Rows)
+        writeMqa3Draft(draftKey, { draftKey, navigationState: nextNavigationState, mqa3Insert3: hydratedPage3 })
+      } catch (error) { console.warn('Cannot hydrate MQA3 page 3 from existing TQF3:', error) }
+    }
+    hydratePage3FromExistingTqf3()
+    return () => { isMounted = false }
+  }, [apiUrl, draftKey, navigationState, savedDraft])
 
   useEffect(() => {
     let isMounted = true

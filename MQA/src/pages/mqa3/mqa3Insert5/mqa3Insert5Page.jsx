@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
@@ -22,20 +22,27 @@ const safeReadJson = (key) => { try { const rawValue = sessionStorage.getItem(ke
 const safeWriteJson = (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)) } catch (error) { console.warn('Cannot write MQA3 draft to sessionStorage:', error) } }
 const getActiveDraftKey = () => { try { return sessionStorage.getItem(MQA3_ACTIVE_DRAFT_KEY) || '' } catch (error) { return '' } }
 const setActiveDraftKey = (draftKey) => { try { sessionStorage.setItem(MQA3_ACTIVE_DRAFT_KEY, draftKey) } catch (error) { console.warn('Cannot set active MQA3 draft key:', error) } }
-const getMqa3DraftKey = (state = {}) => { const courseItem = state?.courseItem ?? {}; const keySource = state?.mqa3DraftKey || state?.openingCourseItemId || state?.requestedCourseItemId || state?.courseId || state?.courseCode || courseItem?.openingCourseItemId || courseItem?.requestedCourseItemId || courseItem?.courseId || courseItem?.courseCode || ''; if (keySource) return String(keySource).startsWith('mqa3Draft:') ? String(keySource) : `mqa3Draft:${keySource}`; return getActiveDraftKey() || 'mqa3Draft:new' }
+const isTqf3DocumentLike = (source = {}) => Boolean(source && typeof source === 'object' && (source?.lesson_plans || source?.lessonPlans || source?.lesson_plan_list || source?.lessonPlanList || source?.evaluation_plans || source?.evaluationPlans || source?.development_plans || source?.developmentPlans || source?.clos || source?.cloList || source?.agreements || source?.integration_detail || source?.integrationDetail || source?.main_textbooks || source?.mainTextbooks || source?.references || source?.curriculum_name || source?.curriculumName || source?.course_category || source?.courseCategory || source?.semester || source?.academic_year || source?.academicYear || source?.year_level || source?.yearLevel || source?.section_group || source?.sectionGroup || source?.student_count || source?.studentCount || source?.course_description || source?.courseDescription || source?.objectives || source?.plo_mapping || source?.ploMapping || source?.status))
+const getDocumentIdFromSource = (source = {}, allowPlainId = false) => { const directId = normalizeText(source?.tqf3Id ?? source?.tqf3_id ?? source?.mqa3Id ?? source?.mqa3_id ?? source?.selectedDocumentId ?? source?.documentId ?? source?.document_id ?? source?.document?.id ?? source?.mqa3Document?.id ?? source?.tqf3Document?.id ?? source?.tqf3?.id ?? source?.mqa3?.id ?? ''); if (directId) return directId; if (allowPlainId && isTqf3DocumentLike(source)) return normalizeText(source?.id ?? ''); return '' }
+const getTqf3EditIdFromState = (state = {}) => { const strongSources = [state, state?.documentInfo, state?.mqa3Document, state?.tqf3Document, state?.tqf3, state?.mqa3]; for (const source of strongSources) { const id = getDocumentIdFromSource(source || {}, true); if (id) return id } const weakSources = [state?.courseItem, state?.assignedCourse, state?.requestedCourseItem, state?.course, state?.selectedCourse]; for (const source of weakSources) { const id = getDocumentIdFromSource(source || {}, false); if (id) return id } return '' }
+const getMqa3DraftKey = (state = {}) => { const courseItem = state?.courseItem ?? {}; const editDocumentId = getTqf3EditIdFromState(state); const keySource = state?.mqa3DraftKey || (editDocumentId ? `tqf3:${editDocumentId}` : '') || state?.openingCourseItemId || state?.requestedCourseItemId || state?.courseId || state?.courseCode || courseItem?.openingCourseItemId || courseItem?.requestedCourseItemId || courseItem?.courseId || courseItem?.courseCode || ''; if (keySource) return String(keySource).startsWith('mqa3Draft:') ? String(keySource) : `mqa3Draft:${keySource}`; return getActiveDraftKey() || 'mqa3Draft:new' }
 const readMqa3Draft = (draftKey) => safeReadJson(draftKey)
 const writeMqa3Draft = (draftKey, nextDraft) => { const currentDraft = readMqa3Draft(draftKey) || {}; const mergedDraft = { ...currentDraft, ...nextDraft, updatedAt: new Date().toISOString() }; safeWriteJson(draftKey, mergedDraft); setActiveDraftKey(draftKey); return mergedDraft }
 const getErrorMessage = (error, fallbackMessage) => { const detail = error?.response?.data?.detail; const message = error?.response?.data?.message; if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message || JSON.stringify(item)).join(', '); return detail || message || fallbackMessage }
 const toNumberOrNull = (value) => { const text = normalizeText(value); if (!text) return null; if (!/^\d+(\.\d+)?$/.test(text)) return null; return Number(text) }
 const toIntegerOrNull = (value) => { const numberValue = toNumberOrNull(value); return numberValue === null ? null : Math.trunc(numberValue) }
 const getCurrentDateString = () => { const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); return `${year}-${month}-${day}` }
-const normalizeList = (value) => Array.isArray(value) ? value.map((item) => normalizeText(item)).filter(Boolean) : normalizeText(value).split('\n').map((item) => normalizeText(item)).filter(Boolean)
+const normalizeList = (value) => Array.isArray(value) ? value.map((item) => typeof item === 'object' ? normalizeText(item?.detail ?? item?.name ?? item?.text ?? item?.value ?? '') : normalizeText(item)).filter(Boolean) : normalizeText(value).split('\n').map((item) => normalizeText(item)).filter(Boolean)
 const normalizeCloList = (value) => normalizeList(value)
+const getResponseList = (data, keyList = []) => { if (Array.isArray(data)) return data; if (Array.isArray(data?.data)) return data.data; if (Array.isArray(data?.items)) return data.items; if (Array.isArray(data?.results)) return data.results; for (const key of keyList) if (Array.isArray(data?.[key])) return data[key]; return [] }
+const getResponseObject = (data) => { if (Array.isArray(data)) return data[0] ?? null; if (data?.data && typeof data.data === 'object' && !Array.isArray(data.data)) return data.data; if (data?.item && typeof data.item === 'object') return data.item; if (data?.result && typeof data.result === 'object') return data.result; return data }
+const getCloListFromTqf3Data = (tqf3Data = {}) => getResponseList(tqf3Data?.clos ?? tqf3Data?.cloList ?? tqf3Data?.clo_list, ['clos', 'items', 'data']).map((item, index) => normalizeText(item?.detail ?? item?.clo_detail ?? item?.description ?? item?.name ?? item?.text ?? item) || `CLO${index + 1}`).filter(Boolean)
 const getCloListFromPage2 = (navigationState = {}, savedDraft = {}) => normalizeCloList(navigationState?.mqa3Insert2?.cloList ?? navigationState?.mqa3Insert2?.clo ?? savedDraft?.mqa3Insert2?.cloList ?? savedDraft?.mqa3Insert2?.clo ?? [])
+const resolveCloTextForDisplay = (value, fallbackIndex = 0, cloList = []) => { const text = normalizeText(value); const numberMatch = text.match(/^(?:CLO)?\s*0*(\d+)$/i); if (numberMatch) return cloList[Number(numberMatch[1]) - 1] || `CLO${Number(numberMatch[1])}`; if (!text) return cloList[fallbackIndex] || `CLO${fallbackIndex + 1}`; return text }
 const syncRows16WithCloList = (currentRows = [], cloList = []) => { const safeRows = Array.isArray(currentRows) && currentRows.length > 0 ? currentRows : initialRows16; const cleanCloList = normalizeCloList(cloList); if (cleanCloList.length === 0) return safeRows; const rowMapByClo = new Map(); safeRows.forEach((row) => { const rowClo = normalizeText(row?.clo); if (rowClo && !rowMapByClo.has(rowClo)) rowMapByClo.set(rowClo, row) }); return cleanCloList.map((clo, index) => { const matchedRow = rowMapByClo.get(clo) || safeRows[index] || {}; return { clo, activities: matchedRow.activities || '', weeks: matchedRow.weeks || '', percent: matchedRow.percent || '' } }) }
 const listToText = (items = []) => normalizeList(items).join('\n')
+const splitDbTextToList = (value) => { const list = normalizeText(value).split('\n').map((item) => normalizeText(item)).filter(Boolean); return list.length ? list : [''] }
 const sumPercent = (values) => values.reduce((total, item) => total + (Number.parseFloat(item) || 0), 0)
-const getResponseList = (data, keyList = []) => { if (Array.isArray(data)) return data; if (Array.isArray(data?.data)) return data.data; if (Array.isArray(data?.items)) return data.items; if (Array.isArray(data?.results)) return data.results; for (const key of keyList) if (Array.isArray(data?.[key])) return data[key]; return [] }
 const normalizeDocumentStatus = (value) => { const text = normalizeText(value).toLowerCase().replace(/[\s_-]/g, ''); if (!text) return 'notStarted'; if (['submitted', 'submit', 'sent', 'approved', 'pending', 'pendingapproval', 'waitingapproval'].includes(text)) return 'submitted'; if (['draft', 'savedraft'].includes(text)) return 'draft'; if (['rejected', 'reject'].includes(text)) return 'rejected'; return text }
 const getCourseIdForPayload = (navigationState = {}, savedDraft = {}) => { const courseItem = navigationState?.courseItem || savedDraft?.navigationState?.courseItem || {}; const page1 = navigationState?.mqa3Insert1 || savedDraft?.mqa3Insert1 || {}; return toIntegerOrNull(navigationState?.courseId || navigationState?.course_id || courseItem?.courseId || courseItem?.course_id || courseItem?.rawData?.course_id || courseItem?.rawData?.courseId || page1?.courseId || page1?.course_id || page1?.courseDetail?.id || page1?.courseDetail?.course_id || page1?.courseDetail?.courseId) }
 const getAcademicYearFromText = (value, navigationState = {}) => { const text = normalizeText(value); const fromNavigation = navigationState?.academicYear || navigationState?.academic_year || navigationState?.courseItem?.academicYear || navigationState?.courseItem?.academic_year; if (fromNavigation) return toIntegerOrNull(fromNavigation); const matchSlash = text.match(/\/\s*(\d{4})/); if (matchSlash) return toIntegerOrNull(matchSlash[1]); const matchYear = text.match(/(25\d{2}|20\d{2})/); return matchYear ? toIntegerOrNull(matchYear[1]) : null }
@@ -54,8 +61,19 @@ const buildTqf3Payload = ({ navigationState, savedDraft, rows16, exam16, agreeme
   const examRows = exam16.items.map((item) => ({ activity: normalizeText(item.name), clo_number: normalizeText(exam16.label), evaluation_week: normalizeText(item.week), proportion_percent: toNumberOrNull(item.percent) })).filter((row) => hasText(row.activity) || hasText(row.evaluation_week) || row.proportion_percent !== null)
   return { course_id: getCourseIdForPayload(navigationState, savedDraft), curriculum_name: normalizeText(page1.curriculumMajor), course_category: normalizeText(page1.courseType), semester: getSemesterForPayload(page1.semester), academic_year: getAcademicYearFromText(page1.semester, navigationState), year_level: normalizeText(page1.yearLevel), section_group: normalizeText(page1.sectionNumber), student_count: toIntegerOrNull(page1.studentCount), location: normalizeText(page1.learningPlace), pre_requisite: normalizeText(page2.prerequisite), co_requisite: normalizeText(page2.corequisite), updated_at: normalizeText(page2.updateDate) || getCurrentDateString(), course_description: normalizeText(page2.descriptionThai), objectives: normalizeText(page2.developmentObjective), plo_mapping: normalizeText(page2.plo), lecture_hours: toNumberOrNull(page3Form.lectureHours), practice_hours: toNumberOrNull(page3Form.practiceHours), self_study_hours: toNumberOrNull(page3Form.selfStudyHours), contact_detail: normalizeText(page3Form.contactChannel), agreements: listToText(agreements17), integration_detail: listToText(integration18), main_textbooks: listToText(books19), references: listToText(websites19), instructors: cleanTeachers.map((name) => ({ name })), clos: cleanCloList.map((detail, index) => ({ number: index + 1, detail })), development_plans: dev14Rows.map((row, index) => ({ clo_number: getCloNumberFromText(row.clo, index), teaching_strategy: normalizeText(row.teachStrategy), evaluation_strategy: normalizeText(row.assessStrategy) })).filter((row) => row.clo_number || hasText(row.teaching_strategy) || hasText(row.evaluation_strategy)), lesson_plans: lessonPlans, evaluation_plans: [...evaluationRows, ...examRows] }
 }
+const isExamEvaluationPlan = (item = {}) => { const activity = normalizeText(item?.activity ?? item?.name ?? item?.evaluation_activity); const cloNumber = normalizeText(item?.clo_number ?? item?.cloNumber ?? item?.clo); return /สอบ|กลางภาค|ปลายภาค|midterm|final/i.test(activity) || /รวมทุก\s*CLO|ทุก\s*CLO/i.test(cloNumber) }
+const mapEvaluationPlansToPage5 = (evaluationPlans = [], cloList = []) => { const normalPlans = evaluationPlans.filter((item) => !isExamEvaluationPlan(item)); const examPlans = evaluationPlans.filter((item) => isExamEvaluationPlan(item)); const rows16 = normalPlans.length ? normalPlans.map((item, index) => ({ clo: resolveCloTextForDisplay(item?.clo_number ?? item?.cloNumber ?? item?.clo, index, cloList), activities: normalizeText(item?.activity ?? item?.name ?? item?.evaluation_activity), weeks: normalizeText(item?.evaluation_week ?? item?.evaluationWeek ?? item?.week ?? item?.weeks), percent: normalizeText(item?.proportion_percent ?? item?.proportionPercent ?? item?.percent) })) : syncRows16WithCloList(initialRows16, cloList); const examItems = examPlans.map((item) => ({ name: normalizeText(item?.activity ?? item?.name ?? item?.evaluation_activity) || 'สอบ...', week: normalizeText(item?.evaluation_week ?? item?.evaluationWeek ?? item?.week ?? item?.weeks), percent: normalizeText(item?.proportion_percent ?? item?.proportionPercent ?? item?.percent) })).filter((item) => hasText(item.name) || hasText(item.week) || hasText(item.percent)); const examLabel = normalizeText(examPlans.find((item) => hasText(item?.clo_number ?? item?.cloNumber ?? item?.clo))?.clo_number ?? examPlans.find((item) => hasText(item?.cloNumber))?.cloNumber) || initialExam16.label; return { rows16: syncRows16WithCloList(rows16, cloList), exam16: { label: examLabel, items: examItems.length ? examItems : initialExam16.items } } }
+const mapTqf3DetailToPage5 = (tqf3Data = {}, fallbackCloList = []) => { const dbCloList = getCloListFromTqf3Data(tqf3Data); const cloList = dbCloList.length ? dbCloList : fallbackCloList; const evaluationPlans = getResponseList(tqf3Data?.evaluation_plans ?? tqf3Data?.evaluationPlans ?? tqf3Data?.evaluations, ['evaluation_plans', 'evaluationPlans', 'items', 'data']); const mappedEvaluation = mapEvaluationPlansToPage5(evaluationPlans, cloList); return { rows16: mappedEvaluation.rows16, exam16: mappedEvaluation.exam16, agreements17: splitDbTextToList(tqf3Data?.agreements), integration18: splitDbTextToList(tqf3Data?.integration_detail ?? tqf3Data?.integrationDetail), books19: splitDbTextToList(tqf3Data?.main_textbooks ?? tqf3Data?.mainTextbooks), websites19: splitDbTextToList(tqf3Data?.references) } }
+const hasMeaningfulPage5Data = (navigationState = {}, savedDraft = {}) => { const page5 = navigationState?.mqa3Insert5 || savedDraft?.mqa3Insert5 || {}; const rowHasData = Array.isArray(page5?.rows16) && page5.rows16.some((row) => hasText(row?.activities) || hasText(row?.weeks) || hasText(row?.percent)); const listHasData = ['agreements17', 'integration18', 'books19', 'websites19'].some((key) => Array.isArray(page5?.[key]) && page5[key].some((item) => hasText(item))); const examHasData = Array.isArray(page5?.exam16?.items) && page5.exam16.items.some((item) => hasText(item?.name) || hasText(item?.week) || hasText(item?.percent)); return rowHasData || listHasData || examHasData }
 const getInitialPage5Data = (navigationState = {}, savedDraft = {}, page2CloList = []) => { const page5 = navigationState?.mqa3Insert5 || savedDraft?.mqa3Insert5 || {}; const page5Rows16 = Array.isArray(page5.rows16) && page5.rows16.length ? page5.rows16 : initialRows16; return { rows16: syncRows16WithCloList(page5Rows16, page2CloList), exam16: page5.exam16 || initialExam16, agreements17: Array.isArray(page5.agreements17) && page5.agreements17.length ? page5.agreements17 : [''], integration18: Array.isArray(page5.integration18) && page5.integration18.length ? page5.integration18 : [''], books19: Array.isArray(page5.books19) && page5.books19.length ? page5.books19 : [''], websites19: Array.isArray(page5.websites19) && page5.websites19.length ? page5.websites19 : [''] } }
-const getExistingTqf3IdFromSource = (navigationState = {}, savedDraft = {}) => normalizeText(navigationState?.tqf3Id || navigationState?.tqf3_id || navigationState?.mqa3Id || navigationState?.mqa3_id || navigationState?.courseItem?.tqf3Id || navigationState?.courseItem?.tqf3_id || navigationState?.courseItem?.mqa3Id || navigationState?.courseItem?.mqa3_id || navigationState?.courseItem?.tqf3?.id || navigationState?.courseItem?.mqa3?.id || savedDraft?.tqf3Id || savedDraft?.tqf3_id || savedDraft?.mqa3Id || savedDraft?.mqa3_id || savedDraft?.navigationState?.tqf3Id || savedDraft?.navigationState?.tqf3_id || savedDraft?.navigationState?.mqa3Id || savedDraft?.navigationState?.mqa3_id || savedDraft?.navigationState?.courseItem?.tqf3Id || savedDraft?.navigationState?.courseItem?.tqf3_id || savedDraft?.navigationState?.courseItem?.mqa3Id || savedDraft?.navigationState?.courseItem?.mqa3_id || savedDraft?.navigationState?.courseItem?.tqf3?.id || savedDraft?.navigationState?.courseItem?.mqa3?.id || '')
+const getExistingTqf3IdFromSource = (navigationState = {}, savedDraft = {}) => {
+  const savedNavigationState = savedDraft?.navigationState || {}
+  const strongSources = [navigationState, savedNavigationState, navigationState?.documentInfo, savedNavigationState?.documentInfo, navigationState?.mqa3Document, savedNavigationState?.mqa3Document, navigationState?.tqf3Document, savedNavigationState?.tqf3Document, navigationState?.tqf3, savedNavigationState?.tqf3, navigationState?.mqa3, savedNavigationState?.mqa3, savedDraft]
+  for (const source of strongSources) { const id = getDocumentIdFromSource(source || {}, true); if (id) return id }
+  const weakSources = [navigationState?.courseItem, savedNavigationState?.courseItem, navigationState?.assignedCourse, savedNavigationState?.assignedCourse, navigationState?.requestedCourseItem, savedNavigationState?.requestedCourseItem, navigationState?.course, savedNavigationState?.course, navigationState?.selectedCourse, savedNavigationState?.selectedCourse]
+  for (const source of weakSources) { const id = getDocumentIdFromSource(source || {}, false); if (id) return id }
+  return ''
+}
 const normalizeTqf3DocumentRow = (row = {}, index = 0) => ({ id: normalizeText(row?.id || row?.tqf3_id || row?.tqf3Id || ''), courseId: normalizeText(row?.course_id || row?.courseId || row?.course?.id || ''), semester: normalizeText(row?.semester || row?.term || ''), academicYear: normalizeText(row?.academic_year || row?.academicYear || row?.year || ''), sectionGroup: normalizeText(row?.section_group || row?.sectionGroup || row?.section_number || row?.sectionNumber || row?.group_no || row?.groupNo || ''), status: normalizeDocumentStatus(row?.status || row?.document_status || row?.documentStatus), sortId: Number(row?.id || row?.tqf3_id || row?.tqf3Id || index) || index })
 const isSameValueIfBothExist = (firstValue, secondValue) => { const firstText = normalizeText(firstValue); const secondText = normalizeText(secondValue); if (!firstText || !secondText) return true; return firstText === secondText }
 const isSameTqf3Document = (payload, documentRow) => { if (!payload?.course_id || !documentRow?.courseId) return false; if (normalizeText(payload.course_id) !== normalizeText(documentRow.courseId)) return false; if (!isSameValueIfBothExist(payload.semester, documentRow.semester)) return false; if (!isSameValueIfBothExist(payload.academic_year, documentRow.academicYear)) return false; if (!isSameValueIfBothExist(payload.section_group, documentRow.sectionGroup)) return false; return true }
@@ -65,10 +83,7 @@ const findExistingTqf3Document = async (apiUrl, payload) => {
     const documentRows = getResponseList(response.data, ['items', 'data', 'results', 'tqf3', 'documents']).map((item, index) => normalizeTqf3DocumentRow(item, index))
     const matchedRows = documentRows.filter((documentRow) => isSameTqf3Document(payload, documentRow)).sort((a, b) => { if (a.status === 'draft' && b.status !== 'draft') return -1; if (a.status !== 'draft' && b.status === 'draft') return 1; return b.sortId - a.sortId })
     return matchedRows[0] || null
-  } catch (error) {
-    console.warn('Cannot check existing TQF3 document:', error)
-    return null
-  }
+  } catch (error) { console.warn('Cannot check existing TQF3 document:', error); return null }
 }
 
 function mqa3Insert5Page() {
@@ -83,6 +98,9 @@ function mqa3Insert5Page() {
   const page2CloListKey = useMemo(() => page2CloList.join('|||'), [page2CloList])
   const isCloSyncedFromPage2 = page2CloList.length > 0
   const initialPage5Data = useMemo(() => getInitialPage5Data(navigationState, savedDraft, page2CloList), [navigationState, savedDraft, page2CloList])
+  const existingTqf3Id = useMemo(() => getExistingTqf3IdFromSource(navigationState, savedDraft), [navigationState, savedDraft])
+  const isEditMode = Boolean(existingTqf3Id)
+  const loadedExistingDocumentIdRef = useRef('')
 
   const [rows16, setRows16] = useState(initialPage5Data.rows16)
   const [exam16, setExam16] = useState(initialPage5Data.exam16)
@@ -91,6 +109,9 @@ function mqa3Insert5Page() {
   const [books19, setBooks19] = useState(initialPage5Data.books19)
   const [websites19, setWebsites19] = useState(initialPage5Data.websites19)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingExistingDocument, setIsLoadingExistingDocument] = useState(false)
+  const [hasLoadedExistingDocument, setHasLoadedExistingDocument] = useState(false)
+  const [loadMessage, setLoadMessage] = useState('')
   const [popup, setPopup] = useState({ open: false, title: '', value: '', onSave: null })
 
   const cloTotal = sumPercent(rows16.map((row) => row.percent))
@@ -102,8 +123,48 @@ function mqa3Insert5Page() {
   const isListComplete = (items) => items.length > 0 && items.every((item) => hasText(item))
   const isPageComplete = useMemo(() => isRows16Complete && isExam16Complete && isListComplete(agreements17) && isListComplete(integration18) && isListComplete(books19) && isListComplete(websites19) && total === 100, [isRows16Complete, isExam16Complete, agreements17, integration18, books19, websites19, total])
 
+  useEffect(() => {
+    if (!isEditMode || !existingTqf3Id || !apiUrl) return
+    if (loadedExistingDocumentIdRef.current === String(existingTqf3Id)) return
+    let isMounted = true
+    const fetchExistingDocument = async () => {
+      try {
+        setIsLoadingExistingDocument(true)
+        setLoadMessage('กำลังดึงข้อมูลเดิมของเอกสาร มคอ.3 จากฐานข้อมูล...')
+        const response = await axios.get(getApiUrl(apiUrl, `/tqf3/${existingTqf3Id}`), getAuthConfig())
+        if (!isMounted) return
+        const tqf3Data = getResponseObject(response.data) || {}
+        const mappedPage5 = mapTqf3DetailToPage5(tqf3Data, page2CloList)
+        loadedExistingDocumentIdRef.current = String(existingTqf3Id)
+        setHasLoadedExistingDocument(true)
+        setRows16(mappedPage5.rows16)
+        setExam16(mappedPage5.exam16)
+        setAgreements17(mappedPage5.agreements17)
+        setIntegration18(mappedPage5.integration18)
+        setBooks19(mappedPage5.books19)
+        setWebsites19(mappedPage5.websites19)
+        const latestDraft = readMqa3Draft(draftKey) || savedDraft || {}
+        const mergedNavigationState = { ...(latestDraft.navigationState || {}), ...navigationState, mqa3DraftKey: draftKey, tqf3Id: existingTqf3Id, mqa3Id: existingTqf3Id, mqa3Insert5: mappedPage5 }
+        writeMqa3Draft(draftKey, { ...latestDraft, draftKey, tqf3Id: existingTqf3Id, mqa3Id: existingTqf3Id, navigationState: mergedNavigationState, mqa3Insert5: mappedPage5 })
+        setLoadMessage('ดึงข้อมูลเดิมจากฐานข้อมูลเรียบร้อยแล้ว')
+      } catch (error) {
+        console.warn('Cannot load existing TQF3 page 5 data:', error)
+        if (isMounted) {
+          setHasLoadedExistingDocument(true)
+          setLoadMessage('ไม่สามารถดึงข้อมูลเดิมของหัวข้อ 16 - 19 ได้ ระบบจะแสดงข้อมูลจากแบบร่างในเครื่องแทน')
+        }
+      } finally { if (isMounted) setIsLoadingExistingDocument(false) }
+    }
+    fetchExistingDocument()
+    return () => { isMounted = false }
+  }, [apiUrl, draftKey, existingTqf3Id, isEditMode, navigationState, savedDraft, page2CloListKey])
+
   useEffect(() => { const nextCloList = page2CloListKey ? page2CloListKey.split('|||').filter(Boolean) : []; if (nextCloList.length === 0) return; setRows16((prev) => syncRows16WithCloList(prev, nextCloList)) }, [page2CloListKey])
-  useEffect(() => { const nextState = { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }; writeMqa3Draft(draftKey, { draftKey, navigationState: nextState, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }) }, [draftKey, navigationState, rows16, exam16, agreements17, integration18, books19, websites19])
+  useEffect(() => {
+    if (isEditMode && existingTqf3Id && !hasLoadedExistingDocument) return
+    const nextState = { ...navigationState, mqa3DraftKey: draftKey, tqf3Id: existingTqf3Id || navigationState?.tqf3Id, mqa3Id: existingTqf3Id || navigationState?.mqa3Id, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }
+    writeMqa3Draft(draftKey, { draftKey, tqf3Id: existingTqf3Id || navigationState?.tqf3Id, mqa3Id: existingTqf3Id || navigationState?.mqa3Id, navigationState: nextState, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } })
+  }, [draftKey, existingTqf3Id, hasLoadedExistingDocument, isEditMode, navigationState, rows16, exam16, agreements17, integration18, books19, websites19])
 
   const openPopup = (title, value, onSave) => setPopup({ open: true, title, value, onSave })
   const closePopup = () => setPopup((prev) => ({ ...prev, open: false }))
@@ -118,15 +179,19 @@ function mqa3Insert5Page() {
   const updateListItem = (setter, index, value) => setter((prev) => { const next = [...prev]; next[index] = value; return next })
   const addListItem = (setter) => setter((prev) => [...prev, ''])
   const removeListItem = (setter, index, minItems = 1) => setter((prev) => prev.length <= minItems ? prev : prev.filter((_, itemIndex) => itemIndex !== index))
-  const handleGoBack = () => { const nextState = { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }; writeMqa3Draft(draftKey, { draftKey, navigationState: nextState, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }); navigate('/mqa3Insert-4', { state: nextState }) }
+  const handleGoBack = () => {
+    const nextState = { ...navigationState, mqa3DraftKey: draftKey, tqf3Id: existingTqf3Id || navigationState?.tqf3Id, mqa3Id: existingTqf3Id || navigationState?.mqa3Id, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }
+    writeMqa3Draft(draftKey, { draftKey, tqf3Id: existingTqf3Id || navigationState?.tqf3Id, mqa3Id: existingTqf3Id || navigationState?.mqa3Id, navigationState: nextState, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } })
+    navigate('/mqa3Insert-4', { state: nextState })
+  }
   const handleSaveDocument = async () => {
     if (!isPageComplete || isSaving) return
-    const latestDraft = writeMqa3Draft(draftKey, { draftKey, navigationState: { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } })
+    const latestDraft = writeMqa3Draft(draftKey, { draftKey, tqf3Id: existingTqf3Id || navigationState?.tqf3Id, mqa3Id: existingTqf3Id || navigationState?.mqa3Id, navigationState: { ...navigationState, mqa3DraftKey: draftKey, tqf3Id: existingTqf3Id || navigationState?.tqf3Id, mqa3Id: existingTqf3Id || navigationState?.mqa3Id, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } }, mqa3Insert5: { rows16, exam16, agreements17, integration18, books19, websites19 } })
     const payload = buildTqf3Payload({ navigationState: latestDraft.navigationState || navigationState, savedDraft: latestDraft, rows16, exam16, agreements17, integration18, books19, websites19 })
     if (!payload.course_id) { window.alert('ไม่พบรหัสรายวิชา ไม่สามารถบันทึกเอกสาร มคอ.3 ได้ กรุณากลับไปเลือกหรือกรอกข้อมูลรายวิชาใหม่'); return }
     try {
       setIsSaving(true)
-      let targetTqf3Id = getExistingTqf3IdFromSource(latestDraft.navigationState || navigationState, latestDraft)
+      let targetTqf3Id = existingTqf3Id || getExistingTqf3IdFromSource(latestDraft.navigationState || navigationState, latestDraft)
       let existingDocument = null
       if (!targetTqf3Id) { existingDocument = await findExistingTqf3Document(apiUrl, payload); targetTqf3Id = existingDocument?.id || '' }
       if (existingDocument && existingDocument.status !== 'draft') { window.alert('เอกสาร มคอ.3 นี้ถูกส่งเข้าระบบแล้ว ไม่สามารถบันทึกทับแบบร่างได้'); return }
@@ -144,9 +209,7 @@ function mqa3Insert5Page() {
     } catch (error) {
       console.error('Error saving TQF3 draft:', error)
       window.alert(getErrorMessage(error, 'ไม่สามารถบันทึกเอกสาร มคอ.3 ได้ กรุณาลองใหม่อีกครั้ง'))
-    } finally {
-      setIsSaving(false)
-    }
+    } finally { setIsSaving(false) }
   }
 
   const NumberedListEditor = ({ title, items, setItems, minItems = 1, addLabel = 'เพิ่มข้อ', placeholder = 'คลิกเพื่อกรอกข้อมูล' }) => (
@@ -174,6 +237,8 @@ function mqa3Insert5Page() {
             <Box>
               <Typography className={styles.pageTitle}>การประเมินผล</Typography>
               <Typography className={styles.pageDescription}>กรอกข้อมูลตามแบบฟอร์มเดิมของหัวข้อ 16 - 19</Typography>
+              {isLoadingExistingDocument && <Typography className={styles.pageDescription}>{loadMessage}</Typography>}
+              {!isLoadingExistingDocument && loadMessage && <Typography className={styles.pageDescription}>{loadMessage}</Typography>}
             </Box>
             <Box className={styles.pageStatus}>
               <Typography className={styles.pageStatusLabel}>สถานะหน้านี้</Typography>

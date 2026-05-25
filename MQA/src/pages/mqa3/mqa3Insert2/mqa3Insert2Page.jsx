@@ -28,6 +28,7 @@ import styles from './mqa3Insert2Page.module.css'
 
 const COURSE_ENDPOINT = '/course/'
 const PLO_SUB_PLO_ENDPOINT = '/plo/sub-plos'
+const TQF3_ENDPOINT = '/tqf3'
 const MQA3_ACTIVE_DRAFT_KEY = 'mqa3ActiveDraftKey'
 
 const initialFormValue = {
@@ -135,9 +136,22 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`
 }
 
+const formatDateForInput = (value) => {
+  const text = normalizeText(value)
+  if (!text) return ''
+  return text.slice(0, 10)
+}
+
+const getApiUrl = (apiUrl, path) => `${String(apiUrl || '').replace(/\/$/, '')}${path}`
+
+const getCloDetailFromAny = (item, index = 0) => {
+  if (typeof item === 'string' || typeof item === 'number') return normalizeText(item)
+  return normalizeText(item?.detail ?? item?.description ?? item?.clo_detail ?? item?.cloDetail ?? item?.name ?? item?.title ?? item?.clo ?? item?.value ?? `CLO${index + 1}`)
+}
+
 const normalizeCloList = (value) => {
   if (Array.isArray(value)) {
-    const normalizedList = value.map((item) => normalizeText(item))
+    const normalizedList = value.map((item, index) => getCloDetailFromAny(item, index))
     return normalizedList.length ? normalizedList : ['']
   }
 
@@ -147,6 +161,44 @@ const normalizeCloList = (value) => {
   }
 
   return ['']
+}
+
+const getExistingTqf3IdFromSource = (navigationState = {}, savedDraft = {}) => {
+  const courseItem = navigationState?.courseItem ?? {}
+  const savedNavigationState = savedDraft?.navigationState ?? {}
+  const savedCourseItem = savedNavigationState?.courseItem ?? {}
+  return normalizeText(navigationState?.selectedDocumentId || navigationState?.documentId || navigationState?.document_id || navigationState?.tqf3Id || navigationState?.tqf3_id || navigationState?.mqa3Id || navigationState?.mqa3_id || courseItem?.selectedDocumentId || courseItem?.documentId || courseItem?.document_id || courseItem?.tqf3Id || courseItem?.tqf3_id || courseItem?.mqa3Id || courseItem?.mqa3_id || courseItem?.tqf3?.id || courseItem?.mqa3?.id || savedDraft?.selectedDocumentId || savedDraft?.documentId || savedDraft?.document_id || savedDraft?.tqf3Id || savedDraft?.tqf3_id || savedDraft?.mqa3Id || savedDraft?.mqa3_id || savedNavigationState?.selectedDocumentId || savedNavigationState?.documentId || savedNavigationState?.document_id || savedNavigationState?.tqf3Id || savedNavigationState?.tqf3_id || savedNavigationState?.mqa3Id || savedNavigationState?.mqa3_id || savedCourseItem?.selectedDocumentId || savedCourseItem?.documentId || savedCourseItem?.document_id || savedCourseItem?.tqf3Id || savedCourseItem?.tqf3_id || savedCourseItem?.mqa3Id || savedCourseItem?.mqa3_id || savedCourseItem?.tqf3?.id || savedCourseItem?.mqa3?.id || '')
+}
+
+const mapTqf3DetailToPage2Form = (documentData = {}) => {
+  const cloList = normalizeCloList(getResponseList(documentData?.clos).map((item, index) => getCloDetailFromAny(item, index)))
+  return { prerequisite: normalizeText(documentData?.pre_requisite ?? documentData?.preRequisite) || '-', corequisite: normalizeText(documentData?.co_requisite ?? documentData?.coRequisite) || '-', descriptionThai: documentData?.course_description ?? documentData?.courseDescription ?? '', developmentObjective: documentData?.objectives ?? documentData?.developmentObjective ?? '', plo: documentData?.plo_mapping ?? documentData?.ploMapping ?? '', cloList, updateDate: formatDateForInput(documentData?.updated_at ?? documentData?.updatedAt ?? documentData?.created_at ?? documentData?.createdAt) || getTodayDateString() }
+}
+
+const hydratePage2DraftFromExistingTqf3 = async (apiUrl, draftKey, navigationState = {}) => {
+  const currentDraft = readMqa3Draft(draftKey) || {}
+  const targetTqf3Id = getExistingTqf3IdFromSource(navigationState, currentDraft)
+  if (!targetTqf3Id || !apiUrl) return currentDraft
+  if (String(currentDraft?.hydratedPage2FromTqf3Id || currentDraft?.hydratedFromTqf3Id || '') === String(targetTqf3Id) && currentDraft?.mqa3Insert2) return currentDraft
+
+  try {
+    const response = await axios.get(getApiUrl(apiUrl, `${TQF3_ENDPOINT}/${targetTqf3Id}`), getAuthConfig())
+    const documentData = getResponseObject(response.data) || {}
+    const nextPage2 = mapTqf3DetailToPage2Form(documentData)
+    const baseNavigationState = { ...(currentDraft?.navigationState || {}), ...navigationState }
+    const nextNavigationState = { ...baseNavigationState, mqa3DraftKey: draftKey, documentMode: 'edit', isExistingDocument: true, selectedDocumentId: targetTqf3Id, tqf3Id: targetTqf3Id, mqa3Id: targetTqf3Id, tqf3Status: documentData?.status ?? baseNavigationState?.tqf3Status ?? baseNavigationState?.mqa3Status ?? 'draft', mqa3Status: documentData?.status ?? baseNavigationState?.mqa3Status ?? 'draft', mqa3Insert2: nextPage2 }
+    const nextDraft = { ...currentDraft, draftKey, tqf3Id: targetTqf3Id, mqa3Id: targetTqf3Id, hydratedPage2FromTqf3Id: targetTqf3Id, hydratedAt: new Date().toISOString(), navigationState: nextNavigationState, mqa3Insert2: nextPage2 }
+    writeMqa3Draft(draftKey, nextDraft)
+    return nextDraft
+  } catch (error) {
+    console.warn('Cannot hydrate MQA3 page 2 from TQF3 detail:', error)
+    return currentDraft
+  }
+}
+
+const getMergedNavigationState = (navigationState = {}, draftKey = '') => {
+  const latestDraft = readMqa3Draft(draftKey) || {}
+  return { ...(latestDraft?.navigationState || {}), ...navigationState }
 }
 
 const getCourseDetailFromNavigation = (navigationState, savedDraft) => {
@@ -431,21 +483,22 @@ function mqa3Insert2Page() {
     setCourseErrorMessage('')
 
     try {
-      const latestDraft = readMqa3Draft(draftKey)
-      const nextCourseDetail = await fetchCourseDetailForMqa3(apiUrl, navigationState, latestDraft)
-      const nextPloText = await fetchPloTextForMqa3(apiUrl, navigationState, latestDraft, nextCourseDetail)
+      const hydratedDraft = await hydratePage2DraftFromExistingTqf3(apiUrl, draftKey, navigationState)
+      const latestDraft = hydratedDraft || readMqa3Draft(draftKey)
+      const effectiveNavigationState = getMergedNavigationState(navigationState, draftKey)
+      const nextCourseDetail = await fetchCourseDetailForMqa3(apiUrl, effectiveNavigationState, latestDraft)
+      const nextPloText = await fetchPloTextForMqa3(apiUrl, effectiveNavigationState, latestDraft, nextCourseDetail)
 
       setCourseDetail(nextCourseDetail)
-      setForm(buildInitialFormValue(navigationState, latestDraft, nextCourseDetail, nextPloText))
+      setForm(buildInitialFormValue(effectiveNavigationState, latestDraft, nextCourseDetail, nextPloText))
       initializedRef.current = true
 
-      if (!nextCourseDetail && getCourseDisplayText(navigationState, latestDraft) === 'ยังไม่พบข้อมูลรายวิชา') {
-        setCourseErrorMessage('ไม่พบข้อมูลรายวิชาที่กำลังจัดทำ กรุณากลับไปเลือกรายวิชาก่อน')
-      }
+      if (!nextCourseDetail && getCourseDisplayText(effectiveNavigationState, latestDraft) === 'ยังไม่พบข้อมูลรายวิชา') setCourseErrorMessage('ไม่พบข้อมูลรายวิชาที่กำลังจัดทำ กรุณากลับไปเลือกรายวิชาก่อน')
     } catch (error) {
       console.error('Error fetching MQA3 page 2 course data:', error)
       const latestDraft = readMqa3Draft(draftKey)
-      setForm(buildInitialFormValue(navigationState, latestDraft, null, ''))
+      const effectiveNavigationState = getMergedNavigationState(navigationState, draftKey)
+      setForm(buildInitialFormValue(effectiveNavigationState, latestDraft, null, ''))
       setCourseErrorMessage('ไม่สามารถดึงข้อมูลรายวิชาหรือ PLO จากระบบได้ แต่ยังสามารถกรอกข้อมูลเองได้')
       initializedRef.current = true
     } finally {
@@ -457,7 +510,8 @@ function mqa3Insert2Page() {
 
   useEffect(() => {
     if (!initializedRef.current) return
-    const nextNavigationState = { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert2: form }
+    const baseNavigationState = getMergedNavigationState(navigationState, draftKey)
+    const nextNavigationState = { ...baseNavigationState, mqa3DraftKey: draftKey, mqa3Insert2: form }
     writeMqa3Draft(draftKey, { draftKey, navigationState: nextNavigationState, mqa3Insert2: form })
   }, [draftKey, navigationState, form])
 
@@ -520,7 +574,7 @@ function mqa3Insert2Page() {
   )
 
   const handleGoBack = () => {
-    const nextState = { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert2: form }
+    const nextState = { ...getMergedNavigationState(navigationState, draftKey), mqa3DraftKey: draftKey, mqa3Insert2: form }
     writeMqa3Draft(draftKey, { draftKey, navigationState: nextState, mqa3Insert2: form })
     navigate('/mqa3Insert-1', { state: nextState })
   }
@@ -530,7 +584,7 @@ function mqa3Insert2Page() {
 
     const cleanCloList = normalizeCloList(form.cloList).map((item) => normalizeText(item)).filter(Boolean)
     const nextForm = { ...form, cloList: cleanCloList }
-    const nextState = { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert2: nextForm }
+    const nextState = { ...getMergedNavigationState(navigationState, draftKey), mqa3DraftKey: draftKey, mqa3Insert2: nextForm }
 
     writeMqa3Draft(draftKey, { draftKey, navigationState: nextState, mqa3Insert2: nextForm })
     navigate('/mqa3Insert-3', { state: nextState })

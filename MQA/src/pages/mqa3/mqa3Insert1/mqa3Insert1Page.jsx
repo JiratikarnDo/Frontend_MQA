@@ -16,6 +16,7 @@ import Mqa3FormNav from '../../../components/mqa3/mqa3FormNav'
 import styles from './mqa3Insert1Page.module.css'
 
 const COURSE_ENDPOINT = '/course/'
+const COURSE_ASSIGNMENT_ENDPOINT = '/course-assignment'
 const SUBJECT_SUBGROUP_ENDPOINT = '/subject-category/subgroup'
 const FIXED_LEARNING_PLACE = 'คณะบริหารธุรกิจและเทคโนโลยีสารสนเทศ มหาวิทยาลัยเทคโนโลยีราชมงคลตะวันออก'
 const MQA3_ACTIVE_DRAFT_KEY = 'mqa3ActiveDraftKey'
@@ -84,7 +85,7 @@ const getResponseObject = (data) => {
 const getErrorMessage = (error, fallbackMessage) => {
   const detail = error?.response?.data?.detail
   const message = error?.response?.data?.message
-  if (Array.isArray(detail)) return detail.map((item) => item.msg).join(', ')
+  if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message || JSON.stringify(item)).join(', ')
   return detail || message || fallbackMessage
 }
 
@@ -159,13 +160,115 @@ const fetchSubGroupOptions = async (apiUrl) => {
   }
 }
 
-const splitTeacherText = (value) => normalizeText(value).split(',').map((item) => normalizeText(item)).filter(Boolean)
+const splitTeacherText = (value) => {
+  if (Array.isArray(value)) return value.flatMap((item) => splitTeacherText(item))
+  return normalizeText(value).split(/[,/|]+|\n/).map((item) => normalizeText(item)).filter(Boolean)
+}
 
-const getTeacherListFromNavigation = (navigationState) => {
+const getTeacherFullNameFromAny = (item) => {
+  if (typeof item === 'string') return normalizeText(item)
+  const teacher = item?.teacher || item?.user || item?.instructor || item
+  const directName = normalizeText(teacher?.teacher_name ?? teacher?.teacherName ?? teacher?.full_name ?? teacher?.fullName ?? teacher?.name ?? teacher?.display_name ?? teacher?.displayName)
+  if (directName) return directName
+  return normalizeText([teacher?.prefixname ?? teacher?.prefix_name ?? teacher?.prefixName, teacher?.first_name ?? teacher?.firstName ?? teacher?.firstname, teacher?.last_name ?? teacher?.lastName ?? teacher?.lastname].filter(Boolean).join(' '))
+}
+
+const uniqueTeacherNames = (teacherNames = []) => Array.from(new Set(teacherNames.flatMap((teacherName) => splitTeacherText(teacherName)).map(normalizeText).filter(Boolean)))
+
+const extractTeacherNamesFromList = (value) => getResponseList(value).map((teacher) => getTeacherFullNameFromAny(teacher)).filter(Boolean)
+
+const getRequestedCourseItemIdForAssignment = (navigationState = {}) => {
   const courseItem = navigationState?.courseItem ?? {}
-  const teacherSource = navigationState?.assignedTeacher ?? courseItem?.assignedTeacher ?? courseItem?.teacherName ?? courseItem?.teacher_name ?? ''
-  const teacherList = Array.isArray(teacherSource) ? teacherSource.map((item) => normalizeText(item)).filter(Boolean) : splitTeacherText(teacherSource)
-  return teacherList.length ? teacherList : ['']
+  const rawData = courseItem?.rawData ?? {}
+  return navigationState?.requestedCourseItemId ?? navigationState?.requested_course_item_id ?? navigationState?.openingCourseItemId ?? navigationState?.opening_course_item_id ?? courseItem?.requestedCourseItemId ?? courseItem?.requested_course_item_id ?? courseItem?.openingCourseItemId ?? courseItem?.opening_course_item_id ?? rawData?.requestedCourseItemId ?? rawData?.requested_course_item_id ?? rawData?.openingCourseItemId ?? rawData?.opening_course_item_id ?? rawData?.id ?? courseItem?.id ?? ''
+}
+
+const getTeacherListFromNavigation = (navigationState = {}) => {
+  const courseItem = navigationState?.courseItem ?? {}
+  const rawData = courseItem?.rawData ?? {}
+  const teacherNames = [
+    ...extractTeacherNamesFromList(navigationState?.assignedTeachers),
+    ...extractTeacherNamesFromList(navigationState?.assignedTeacherList),
+    ...extractTeacherNamesFromList(navigationState?.assigned_teachers),
+    ...extractTeacherNamesFromList(navigationState?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeacherList),
+    ...extractTeacherNamesFromList(courseItem?.assigned_teachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(rawData?.assignedTeachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeacherList),
+    ...extractTeacherNamesFromList(rawData?.assigned_teachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeachersRaw),
+    ...splitTeacherText(navigationState?.assignedTeacher),
+    ...splitTeacherText(navigationState?.assigned_teacher_name),
+    ...splitTeacherText(courseItem?.assignedTeacher),
+    ...splitTeacherText(courseItem?.assigned_teacher_name),
+    ...splitTeacherText(courseItem?.teacherName),
+    ...splitTeacherText(courseItem?.teacher_name),
+    ...splitTeacherText(rawData?.assignedTeacher),
+    ...splitTeacherText(rawData?.assigned_teacher_name),
+    ...splitTeacherText(rawData?.teacherName),
+    ...splitTeacherText(rawData?.teacher_name),
+  ]
+  return uniqueTeacherNames(teacherNames)
+}
+
+const getTeacherListFromAssignmentData = (data) => {
+  const assignmentData = getResponseObject(data) || {}
+  const teacherNames = [
+    ...extractTeacherNamesFromList(assignmentData?.teachers),
+    ...extractTeacherNamesFromList(assignmentData?.teacherList),
+    ...extractTeacherNamesFromList(assignmentData?.teacher_list),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeachers),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeacherList),
+    ...extractTeacherNamesFromList(assignmentData?.assigned_teachers),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teacherList),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teacher_list),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assignedTeachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assignedTeacherList),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assigned_teachers),
+    ...splitTeacherText(assignmentData?.teacherNames),
+    ...splitTeacherText(assignmentData?.teacher_names),
+    ...splitTeacherText(assignmentData?.assignedTeacher),
+    ...splitTeacherText(assignmentData?.assigned_teacher_name),
+    ...splitTeacherText(assignmentData?.teacherName),
+    ...splitTeacherText(assignmentData?.teacher_name),
+    ...splitTeacherText(assignmentData?.data?.teacherNames),
+    ...splitTeacherText(assignmentData?.data?.teacher_names),
+    ...splitTeacherText(assignmentData?.data?.assignedTeacher),
+    ...splitTeacherText(assignmentData?.data?.assigned_teacher_name),
+  ]
+  return uniqueTeacherNames(teacherNames)
+}
+
+const fetchAssignedTeacherListForMqa3 = async (apiUrl, navigationState = {}) => {
+  const requestedCourseItemId = getRequestedCourseItemIdForAssignment(navigationState)
+  if (!requestedCourseItemId) return []
+  try {
+    const response = await axios.get(`${apiUrl}${COURSE_ASSIGNMENT_ENDPOINT}/${requestedCourseItemId}`, getAuthConfig())
+    return getTeacherListFromAssignmentData(response.data)
+  } catch (error) {
+    console.warn('Cannot fetch assigned teachers for MQA3:', error)
+    return []
+  }
+}
+
+const resolveTeacherListForMqa3 = async (apiUrl, navigationState = {}, latestDraft = {}) => {
+  const stateTeacherList = uniqueTeacherNames([...(navigationState?.mqa3Insert1?.teachers || []), ...(navigationState?.mqa3GeneralForm?.teachers || [])])
+  if (stateTeacherList.length) return stateTeacherList
+
+  const apiTeacherList = await fetchAssignedTeacherListForMqa3(apiUrl, navigationState)
+  if (apiTeacherList.length) return apiTeacherList
+
+  const navigationTeacherList = getTeacherListFromNavigation(navigationState)
+  if (navigationTeacherList.length) return navigationTeacherList
+
+  const draftTeacherList = uniqueTeacherNames([...(latestDraft?.mqa3Insert1?.teachers || []), ...(latestDraft?.navigationState?.mqa3Insert1?.teachers || [])])
+  if (draftTeacherList.length) return draftTeacherList
+
+  return ['']
 }
 
 const formatSemesterText = (semester, academicYear) => {
@@ -336,7 +439,7 @@ function mqa3Insert1Page() {
       const subGroupOptions = await fetchSubGroupOptions(apiUrl)
       const nextCourseDetail = await fetchCourseDetailForMqa3(apiUrl, navigationState, subGroupOptions)
       const latestDraft = readMqa3Draft(draftKey)
-      const nextTeachers = navigationState?.mqa3Insert1?.teachers || navigationState?.mqa3GeneralForm?.teachers || latestDraft?.mqa3Insert1?.teachers || getTeacherListFromNavigation(navigationState)
+      const nextTeachers = await resolveTeacherListForMqa3(apiUrl, navigationState, latestDraft)
 
       setCourseDetail(nextCourseDetail)
       setFormValue(buildInitialFormValue(navigationState, nextCourseDetail, latestDraft))
@@ -345,7 +448,7 @@ function mqa3Insert1Page() {
     } catch (error) {
       console.error('Error fetching MQA3 initial course data:', error)
       const latestDraft = readMqa3Draft(draftKey)
-      const nextTeachers = navigationState?.mqa3Insert1?.teachers || navigationState?.mqa3GeneralForm?.teachers || latestDraft?.mqa3Insert1?.teachers || getTeacherListFromNavigation(navigationState)
+      const nextTeachers = await resolveTeacherListForMqa3(apiUrl, navigationState, latestDraft)
 
       setFormValue(buildInitialFormValue(navigationState, null, latestDraft))
       setTeachers(nextTeachers.length ? nextTeachers : [''])
@@ -360,8 +463,25 @@ function mqa3Insert1Page() {
 
   useEffect(() => {
     if (!initializedRef.current) return
-    const cleanTeachers = teachers.map((teacher) => normalizeText(teacher)).filter(Boolean)
-    const nextNavigationState = { ...navigationState, mqa3DraftKey: draftKey, mqa3Insert1: { ...formValue, teachers: cleanTeachers, courseDetail: courseDetail?.rawData || null } }
+    const cleanTeachers = uniqueTeacherNames(teachers)
+    const teacherObjectList = cleanTeachers.map((teacherName, index) => ({ id: String(index + 1), teacherName, name: teacherName }))
+    const nextNavigationState = {
+      ...navigationState,
+      mqa3DraftKey: draftKey,
+      assignedTeacher: cleanTeachers.join(', '),
+      assignedTeachers: cleanTeachers,
+      assignedTeacherList: teacherObjectList,
+      assigned_teachers: teacherObjectList,
+      mqa3Insert1: { ...formValue, teachers: cleanTeachers, courseDetail: courseDetail?.rawData || null },
+      courseItem: {
+        ...(navigationState?.courseItem || {}),
+        assignedTeacher: cleanTeachers.join(', '),
+        assignedTeachers: cleanTeachers,
+        assignedTeacherList: teacherObjectList,
+        assigned_teachers: teacherObjectList,
+        assignedTeachersRaw: teacherObjectList,
+      },
+    }
     writeMqa3Draft(draftKey, { draftKey, navigationState: nextNavigationState, mqa3Insert1: nextNavigationState.mqa3Insert1 })
   }, [draftKey, navigationState, formValue, teachers, courseDetail])
 
@@ -408,10 +528,16 @@ function mqa3Insert1Page() {
   const handleGoNext = () => {
     if (!isPageComplete) return
 
-    const cleanTeachers = teachers.map((teacher) => normalizeText(teacher)).filter(Boolean)
+    const cleanTeachers = uniqueTeacherNames(teachers)
+    const teacherObjectList = cleanTeachers.map((teacherName, index) => ({ id: String(index + 1), teacherName, name: teacherName }))
+
     const nextState = {
       ...navigationState,
       mqa3DraftKey: draftKey,
+      assignedTeacher: cleanTeachers.join(', '),
+      assignedTeachers: cleanTeachers,
+      assignedTeacherList: teacherObjectList,
+      assigned_teachers: teacherObjectList,
       mqa3Insert1: { ...formValue, teachers: cleanTeachers, courseDetail: courseDetail?.rawData || null },
       courseItem: {
         ...(navigationState?.courseItem || {}),
@@ -423,6 +549,10 @@ function mqa3Insert1Page() {
         sectionNumber: formValue.sectionNumber,
         studentCount: formValue.studentCount,
         assignedTeacher: cleanTeachers.join(', '),
+        assignedTeachers: cleanTeachers,
+        assignedTeacherList: teacherObjectList,
+        assigned_teachers: teacherObjectList,
+        assignedTeachersRaw: teacherObjectList,
       },
     }
 
@@ -583,4 +713,5 @@ function mqa3Insert1Page() {
     </Box>
   )
 }
+
 export default mqa3Insert1Page
