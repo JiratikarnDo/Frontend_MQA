@@ -385,3 +385,15 @@
     padding: 20px;
   }
 }
+
+.courseCodeColumn {
+  min-width: 120px;
+  width: 120px;
+  white-space: nowrap;
+}
+
+.noWrapText {
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}

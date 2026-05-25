@@ -5,7 +5,6 @@ import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, I
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
-import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded'
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
@@ -56,6 +55,8 @@ const formatDateInput = (dateValue) => {
   return String(dateValue).slice(0, 10)
 }
 
+const getTodayDateForInput = () => new Date().toISOString().split('T')[0]
+
 const getCourseOpeningRequestId = (item) => item?.id ?? item?.request_id ?? item?.requestId ?? null
 
 const getRequestDepartmentId = (item) => item?.department_id ?? item?.departmentId ?? item?.department?.id ?? item?.rawData?.department_id ?? item?.rawData?.departmentId ?? item?.rawData?.department?.id ?? null
@@ -69,6 +70,41 @@ const normalizeStatus = (status) => {
   return statusText || '-'
 }
 
+const cleanRejectedReason = (value) => {
+  return normalizeText(value)
+    .replace(/^คณบดีไม่อนุมัติเนื่องจาก[:：]\s*/i, '')
+    .replace(/^ไม่อนุมัติเนื่องจาก[:：]\s*/i, '')
+    .trim()
+}
+
+const getRejectedReasonFromApi = (data) => {
+  const source = data?.data && typeof data.data === 'object' ? data.data : data
+  const possibleReason =
+    source?.rejected_reason ??
+    source?.rejectedReason ??
+    source?.reject_reason ??
+    source?.rejectReason ??
+    source?.rejection_reason ??
+    source?.rejectionReason ??
+    source?.rejection_note ??
+    source?.rejectionNote ??
+    source?.note ??
+    source?.comment ??
+    source?.dean_comment ??
+    source?.deanComment ??
+    source?.approval_comment ??
+    source?.approvalComment ??
+    source?.review_comment ??
+    source?.reviewComment ??
+    source?.remark ??
+    source?.remarks ??
+    source?.rawData?.note ??
+    source?.rawData?.comment ??
+    ''
+
+  return cleanRejectedReason(possibleReason)
+}
+
 const getLevelLabel = (level) => {
   if (level === 'bachelor') return 'ปริญญาตรี'
   if (level === 'master') return 'ปริญญาโท'
@@ -80,7 +116,6 @@ const getStatusConfig = (status) => {
   if (status === 'pendingApproval') return { label: 'รอคณบดีพิจารณา', className: styles.statusChipPendingApproval }
   if (status === 'approved') return { label: 'อนุมัติแล้ว', className: styles.statusChipApproved }
   if (status === 'rejected') return { label: 'ไม่อนุมัติ', className: styles.statusChipRejected }
-  if (status === 'draft') return { label: 'แบบร่าง', className: styles.statusChipPendingApproval }
   return { label: '-', className: '' }
 }
 
@@ -127,13 +162,7 @@ const buildYearBlocksFromApi = (data) => {
     courseGroupMap.get(yearLevel).push(course)
   })
 
-  return Array.from(courseGroupMap.entries()).sort(([a], [b]) => Number(a) - Number(b)).map(([yearLevel, courses], index) => ({
-    id: Number(yearLevel) || index + 1,
-    yearLevel,
-    entryTerm: String(data?.semester ?? ''),
-    academicYear: String(data?.academic_year ?? data?.academicYear ?? ''),
-    subjectRows: buildSubjectRowsFromApi(courses),
-  }))
+  return Array.from(courseGroupMap.entries()).sort(([a], [b]) => Number(a) - Number(b)).map(([yearLevel, courses], index) => ({ id: Number(yearLevel) || index + 1, yearLevel, entryTerm: String(data?.semester ?? ''), academicYear: String(data?.academic_year ?? data?.academicYear ?? ''), subjectRows: buildSubjectRowsFromApi(courses) }))
 }
 
 const buildResponsiblePeopleFromApi = (data) => {
@@ -166,7 +195,6 @@ const buildDocumentDataFromApi = (data, level) => {
 
   if (level === 'master') return { generalForm: { submissionRound, semester, academicYear, curriculumName, majorName }, studyForm: { studyPlan: programType || targetGroup || 'planB', learningPeriod: studyMode || 'afterHours', campus }, yearBlocks: buildYearBlocksFromApi(data), approvalForm }
   if (level === 'doctoral') return { generalForm: { submissionRound, semester, academicYear, curriculumName, majorName, doctoralFormType: programType || targetGroup || '1.1', formType: programType || targetGroup || '1.1', campus }, studyForm: {}, yearBlocks: buildYearBlocksFromApi(data), approvalForm }
-
   return { generalForm: { submissionRound, semester, academicYear, curriculumName, majorName, programType: programType || '4year' }, studyForm: { learningPeriod: studyMode || 'regular', campus, targetGroup: targetGroup || 'bp' }, yearBlocks: buildYearBlocksFromApi(data), approvalForm }
 }
 
@@ -179,7 +207,7 @@ const normalizeCourseOpeningFromApi = (apiData, fallbackData = {}) => {
   const updatedAt = data?.updated_at ?? data?.updatedAt ?? createdAt
   const submittedAt = data?.submitted_at ?? data?.submittedAt ?? (status === 'pendingApproval' || status === 'approved' || status === 'rejected' ? updatedAt || createdAt : '')
   const reviewedAt = data?.reviewed_at ?? data?.reviewedAt ?? (status === 'approved' || status === 'rejected' ? updatedAt || createdAt : '')
-  const rejectedReason = data?.rejected_reason ?? data?.rejectedReason ?? data?.note ?? ''
+  const rejectedReason = getRejectedReasonFromApi(data)
 
   return { id, level, status, updatedAt, submittedAt, reviewedAt, rejectedReason, rawData: data, documentData: buildDocumentDataFromApi(data, level) }
 }
@@ -189,17 +217,14 @@ const isMatchedSelectedMajor = (item, selectedMajor) => {
 
   const selectedDepartmentId = selectedMajor?.departmentId ?? selectedMajor?.id ?? null
   const requestDepartmentId = getRequestDepartmentId(item)
-
   if (selectedDepartmentId && requestDepartmentId) return String(requestDepartmentId) === String(selectedDepartmentId)
 
   const selectedMajorCode = normalizeText(selectedMajor?.majorCode)
   const requestMajorCode = normalizeText(item?.rawData?.major_code ?? item?.rawData?.majorCode ?? item?.documentData?.generalForm?.majorCode)
-
   if (selectedMajorCode && requestMajorCode) return selectedMajorCode === requestMajorCode
 
   const selectedMajorName = normalizeText(selectedMajor?.majorNameTh ?? selectedMajor?.majorName ?? selectedMajor?.departmentName ?? selectedMajor?.department_name).toLowerCase()
   const requestMajorName = normalizeText(item?.documentData?.generalForm?.majorName ?? item?.rawData?.major_name ?? item?.rawData?.majorName).toLowerCase()
-
   if (selectedMajorName && requestMajorName) return selectedMajorName === requestMajorName || requestMajorName.includes(selectedMajorName) || selectedMajorName.includes(requestMajorName)
 
   return true
@@ -213,6 +238,7 @@ function DeanCourseOpeningReviewListPage() {
 
   const [requestList, setRequestList] = useState([])
   const [levelFilter, setLevelFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [searchText, setSearchText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isActionLoadingId, setIsActionLoadingId] = useState('')
@@ -239,7 +265,7 @@ function DeanCourseOpeningReviewListPage() {
         try { return await fetchRequestDetail(normalizedSummary) } catch (error) { return normalizedSummary }
       }))
 
-      const scopedList = normalizedList.filter((item) => isMatchedSelectedMajor(item, selectedMajor))
+      const scopedList = normalizedList.filter((item) => isMatchedSelectedMajor(item, selectedMajor) && ['pendingApproval', 'approved', 'rejected'].includes(item.status))
       setRequestList(scopedList)
     } catch (error) {
       console.error('Error fetching dean course opening requests:', error)
@@ -250,25 +276,22 @@ function DeanCourseOpeningReviewListPage() {
     }
   }, [apiUrl, fetchRequestDetail, selectedMajor])
 
-  useEffect(() => {
-    fetchRequestList()
-  }, [fetchRequestList])
-
-  const pendingRequestList = useMemo(() => requestList.filter((item) => item.status === 'pendingApproval'), [requestList])
+  useEffect(() => { fetchRequestList() }, [fetchRequestList])
 
   const filteredRequestList = useMemo(() => {
     const normalizedSearchText = searchText.trim().toLowerCase()
 
-    return pendingRequestList.filter((item) => {
+    return requestList.filter((item) => {
       const curriculumName = item.documentData?.generalForm?.curriculumName ?? ''
       const majorName = item.documentData?.generalForm?.majorName ?? ''
       const requestId = String(item.id ?? '')
       const matchedLevel = levelFilter === 'all' ? true : item.level === levelFilter
+      const matchedStatus = statusFilter === 'all' ? true : item.status === statusFilter
       const matchedSearch = normalizedSearchText.length === 0 || requestId.toLowerCase().includes(normalizedSearchText) || curriculumName.toLowerCase().includes(normalizedSearchText) || majorName.toLowerCase().includes(normalizedSearchText) || getLevelLabel(item.level).toLowerCase().includes(normalizedSearchText)
 
-      return matchedLevel && matchedSearch
+      return matchedLevel && matchedStatus && matchedSearch
     })
-  }, [levelFilter, pendingRequestList, searchText])
+  }, [levelFilter, requestList, searchText, statusFilter])
 
   const pageSummary = useMemo(() => {
     const totalCount = requestList.length
@@ -277,6 +300,11 @@ function DeanCourseOpeningReviewListPage() {
     const rejectedCount = requestList.filter((item) => item.status === 'rejected').length
     return { totalCount, pendingApprovalCount, approvedCount, rejectedCount }
   }, [requestList])
+
+  const updateRequestStatusInState = (requestId, nextStatus, extraData = {}) => {
+    const now = new Date().toISOString()
+    setRequestList((prev) => prev.map((item) => String(item.id) === String(requestId) ? { ...item, status: nextStatus, reviewedAt: now, rejectedReason: extraData.rejectedReason ?? item.rejectedReason, rawData: { ...item.rawData, status: nextStatus === 'rejected' ? 'rejected_by_dean' : nextStatus, note: extraData.rejectedReason ?? item.rawData?.note }, documentData: { ...item.documentData, approvalForm: { ...item.documentData?.approvalForm, deanDate: getTodayDateForInput() } } } : item))
+  }
 
   const handleViewDetail = async (item) => {
     try {
@@ -295,6 +323,7 @@ function DeanCourseOpeningReviewListPage() {
   const handleApproveRequest = async (item) => {
     const requestId = getCourseOpeningRequestId(item)
     if (!requestId) { window.alert('ไม่พบรหัสคำขอเปิดรายวิชา'); return }
+    if (item.status !== 'pendingApproval') { window.alert('เอกสารนี้ถูกดำเนินการไปแล้ว ไม่สามารถอนุมัติซ้ำได้'); return }
 
     const confirmed = window.confirm('ต้องการอนุมัติคำขอเปิดรายวิชารายการนี้ใช่หรือไม่')
     if (!confirmed) return
@@ -303,6 +332,7 @@ function DeanCourseOpeningReviewListPage() {
 
     try {
       await axios.patch(`${apiUrl}${COURSE_OPENING_ENDPOINT}${requestId}/dean-approval`, { status: 'approved', comment: '' }, getAuthConfig())
+      updateRequestStatusInState(requestId, 'approved')
       await fetchRequestList()
       window.alert('อนุมัติเอกสารเรียบร้อยแล้ว')
     } catch (error) {
@@ -314,6 +344,7 @@ function DeanCourseOpeningReviewListPage() {
   }
 
   const handleOpenRejectDialog = (item) => {
+    if (item.status !== 'pendingApproval') { window.alert('เอกสารนี้ถูกดำเนินการไปแล้ว ไม่สามารถไม่อนุมัติซ้ำได้'); return }
     setRejectDialog({ isOpen: true, requestId: String(item.id ?? ''), requestTitle: `${item.documentData?.generalForm?.curriculumName ?? '-'} - ${item.documentData?.generalForm?.majorName ?? '-'}`, note: '' })
   }
 
@@ -327,6 +358,7 @@ function DeanCourseOpeningReviewListPage() {
 
     try {
       await axios.patch(`${apiUrl}${COURSE_OPENING_ENDPOINT}${rejectDialog.requestId}/dean-approval`, { status: 'rejected', comment: trimmedNote }, getAuthConfig())
+      updateRequestStatusInState(rejectDialog.requestId, 'rejected', { rejectedReason: trimmedNote })
       handleCloseRejectDialog()
       await fetchRequestList()
       window.alert('บันทึกผลไม่อนุมัติเรียบร้อยแล้ว')
@@ -338,8 +370,28 @@ function DeanCourseOpeningReviewListPage() {
     }
   }
 
-  const handleOpenRejectedReason = (item) => {
-    setReasonDialog({ isOpen: true, requestId: String(item.id ?? ''), requestTitle: `${item.documentData?.generalForm?.curriculumName ?? '-'} - ${item.documentData?.generalForm?.majorName ?? '-'}`, rejectedReason: item.rejectedReason })
+  const handleOpenRejectedReason = async (item) => {
+    const requestId = getCourseOpeningRequestId(item)
+    const fallbackReason = item.rejectedReason || getRejectedReasonFromApi(item.rawData)
+
+    setReasonDialog({ isOpen: true, requestId: String(item.id ?? ''), requestTitle: `${item.documentData?.generalForm?.curriculumName ?? '-'} - ${item.documentData?.generalForm?.majorName ?? '-'}`, rejectedReason: fallbackReason || 'กำลังโหลดหมายเหตุ...' })
+
+    if (!requestId) return
+
+    try {
+      const detailResponse = await axios.get(`${apiUrl}${COURSE_OPENING_ENDPOINT}${requestId}`, getAuthConfig())
+      const detailData = getResponseObject(detailResponse.data)
+      const latestReason = getRejectedReasonFromApi(detailData)
+
+      setReasonDialog((prev) => ({ ...prev, rejectedReason: latestReason || fallbackReason || '-' }))
+
+      if (latestReason) {
+        setRequestList((prev) => prev.map((requestItem) => String(requestItem.id) === String(requestId) ? { ...requestItem, rejectedReason: latestReason, rawData: { ...requestItem.rawData, ...detailData, note: latestReason } } : requestItem))
+      }
+    } catch (error) {
+      console.error('Error fetching rejected reason:', error)
+      setReasonDialog((prev) => ({ ...prev, rejectedReason: fallbackReason || '-' }))
+    }
   }
 
   const handleCloseRejectedReason = () => setReasonDialog({ isOpen: false, requestId: '', requestTitle: '', rejectedReason: '' })
@@ -353,7 +405,7 @@ function DeanCourseOpeningReviewListPage() {
         <Box className={styles.pageHeader}>
           <Box>
             <Typography className={styles.pageTitle}>ตรวจสอบเอกสารการเปิดรายวิชา</Typography>
-            <Typography className={styles.pageDescription}>หน้านี้ใช้สำหรับตรวจสอบเอกสารที่หัวหน้าสาขาส่งมาในสถานะรอพิจารณา คณบดีสามารถดูรายละเอียดเอกสารก่อนตัดสินใจอนุมัติหรือไม่อนุมัติได้</Typography>
+            <Typography className={styles.pageDescription}>หน้านี้ใช้สำหรับตรวจสอบเอกสารที่หัวหน้าสาขาส่งมา คณบดีสามารถดูรายละเอียดเอกสารก่อนตัดสินใจอนุมัติหรือไม่อนุมัติได้</Typography>
           </Box>
 
           {selectedMajor && (
@@ -376,7 +428,7 @@ function DeanCourseOpeningReviewListPage() {
           <Box className={styles.sectionHeader}>
             <Box>
               <Typography className={styles.sectionTitle}>ค้นหาและกรองรายการ</Typography>
-              <Typography className={styles.sectionDescription}>รายการด้านล่างแสดงเฉพาะเอกสารสถานะรอคณบดีพิจารณาของสาขาที่เลือก</Typography>
+              <Typography className={styles.sectionDescription}>ระบบดึงสถานะและหมายเหตุจากฐานข้อมูลจริง หากไม่อนุมัติแล้วสามารถกดดูหมายเหตุได้</Typography>
             </Box>
           </Box>
 
@@ -391,8 +443,11 @@ function DeanCourseOpeningReviewListPage() {
                 <MenuItem value="doctoral">ปริญญาเอก</MenuItem>
               </TextField>
 
-              <TextField select fullWidth label="สถานะการพิจารณา" value="pendingApproval" disabled>
+              <TextField select fullWidth label="สถานะการพิจารณา" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <MenuItem value="all">ทั้งหมด</MenuItem>
                 <MenuItem value="pendingApproval">รอคณบดีพิจารณา</MenuItem>
+                <MenuItem value="approved">อนุมัติแล้ว</MenuItem>
+                <MenuItem value="rejected">ไม่อนุมัติ</MenuItem>
               </TextField>
             </Box>
           </Box>
@@ -416,6 +471,9 @@ function DeanCourseOpeningReviewListPage() {
                 const statusConfig = getStatusConfig(item.status)
                 const curriculumName = item.documentData?.generalForm?.curriculumName || '-'
                 const majorName = item.documentData?.generalForm?.majorName || '-'
+                const isPending = item.status === 'pendingApproval'
+                const isApproved = item.status === 'approved'
+                const isRejected = item.status === 'rejected'
 
                 return (
                   <Box key={item.id} className={styles.requestCard}>
@@ -433,13 +491,14 @@ function DeanCourseOpeningReviewListPage() {
                       <Box className={styles.actionGroup}>
                         <Button variant="outlined" startIcon={<VisibilityRoundedIcon />} className={styles.outlinedButton} onClick={() => handleViewDetail(item)} disabled={isActionLoadingId === String(item.id)}>ดูรายละเอียด</Button>
 
-                        <Button variant="contained" startIcon={<CheckCircleRoundedIcon />} className={styles.approveButton} onClick={() => handleApproveRequest(item)} disabled={isActionLoadingId === String(item.id)}>
-                          {isActionLoadingId === String(item.id) ? 'กำลังดำเนินการ...' : 'อนุมัติ'}
-                        </Button>
+                        {isPending && (
+                          <>
+                            <Button variant="contained" startIcon={<CheckCircleRoundedIcon />} className={styles.approveButton} onClick={() => handleApproveRequest(item)} disabled={isActionLoadingId === String(item.id)}>{isActionLoadingId === String(item.id) ? 'กำลังดำเนินการ...' : 'อนุมัติ'}</Button>
+                            <Button variant="outlined" startIcon={<CancelRoundedIcon />} color="error" className={styles.rejectButton} onClick={() => handleOpenRejectDialog(item)} disabled={isActionLoadingId === String(item.id)}>ไม่อนุมัติ</Button>
+                          </>
+                        )}
 
-                        <Button variant="outlined" startIcon={<CancelRoundedIcon />} color="error" className={styles.rejectButton} onClick={() => handleOpenRejectDialog(item)} disabled={isActionLoadingId === String(item.id)}>
-                          ไม่อนุมัติ
-                        </Button>
+                        {isRejected && <Button variant="outlined" startIcon={<InfoOutlinedIcon />} color="error" className={styles.outlinedButton} onClick={() => handleOpenRejectedReason(item)}>ดูหมายเหตุ</Button>}
                       </Box>
                     </Box>
 
@@ -451,7 +510,11 @@ function DeanCourseOpeningReviewListPage() {
                     </Box>
 
                     <Box className={styles.requestFooter}>
-                      <Typography className={styles.footerText}>เอกสารรายการนี้ถูกส่งเข้ามาแล้วและกำลังรอคณบดีพิจารณา</Typography>
+                      <Typography className={styles.footerText}>
+                        {isPending && 'เอกสารรายการนี้ถูกส่งเข้ามาแล้วและกำลังรอคณบดีพิจารณา'}
+                        {isApproved && 'เอกสารรายการนี้ได้รับการอนุมัติแล้ว จึงไม่สามารถกดอนุมัติซ้ำได้'}
+                        {isRejected && `เอกสารรายการนี้ไม่อนุมัติ${item.rejectedReason ? ` เนื่องจาก: ${item.rejectedReason}` : ' โดยสามารถกดดูหมายเหตุเพื่ออ่านเหตุผลประกอบการพิจารณาได้'}`}
+                      </Typography>
                     </Box>
                   </Box>
                 )
@@ -460,8 +523,8 @@ function DeanCourseOpeningReviewListPage() {
               {!isLoading && !filteredRequestList.length && (
                 <Box className={styles.emptyState}>
                   <DescriptionRoundedIcon className={styles.emptyStateIcon} />
-                  <Typography className={styles.emptyStateTitle}>ไม่พบเอกสารที่รอพิจารณา</Typography>
-                  <Typography className={styles.emptyStateDescription}>ยังไม่มีเอกสารสถานะรอคณบดีพิจารณาของสาขานี้ หรือรายการอาจถูกอนุมัติ/ไม่อนุมัติไปแล้ว</Typography>
+                  <Typography className={styles.emptyStateTitle}>ไม่พบเอกสารที่ตรงกับเงื่อนไข</Typography>
+                  <Typography className={styles.emptyStateDescription}>ยังไม่มีเอกสารของสาขานี้ หรือรายการอาจถูกกรองออกตามเงื่อนไขที่เลือก</Typography>
                 </Box>
               )}
 
@@ -488,9 +551,7 @@ function DeanCourseOpeningReviewListPage() {
 
         <DialogActions>
           <Button onClick={handleCloseRejectDialog} disabled={Boolean(isActionLoadingId)}>ยกเลิก</Button>
-          <Button variant="contained" color="error" onClick={handleConfirmRejectRequest} disabled={Boolean(isActionLoadingId)}>
-            {isActionLoadingId ? 'กำลังบันทึก...' : 'ยืนยันไม่อนุมัติ'}
-          </Button>
+          <Button variant="contained" color="error" onClick={handleConfirmRejectRequest} disabled={Boolean(isActionLoadingId)}>{isActionLoadingId ? 'กำลังบันทึก...' : 'ยืนยันไม่อนุมัติ'}</Button>
         </DialogActions>
       </Dialog>
 

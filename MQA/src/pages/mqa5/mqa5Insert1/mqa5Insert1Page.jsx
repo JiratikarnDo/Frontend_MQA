@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import {
   Box,
   Button,
+  CircularProgress,
   IconButton,
   TextField,
   Typography,
@@ -14,14 +16,345 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import Mqa5FormNav from '../../../components/mqa5/mqa5FormNav'
 import styles from './mqa5Insert1Page.module.css'
 
-function Mqa5Insert1Page() {
-  const [teachers, setTeachers] = useState([''])
+const MQA5_ACTIVE_DRAFT_KEY = 'mqa5ActiveDraftKey'
+const COURSE_ASSIGNMENT_ENDPOINT = '/course-assignment'
+const defaultLearningPlace = 'คณะบริหารธุรกิจและเทคโนโลยีสารสนเทศ มหาวิทยาลัยเทคโนโลยีราชมงคลตะวันออก'
+const emptyForm = { courseCode: '', courseNameThai: '', courseNameEnglish: '', creditText: '', curriculumMajor: '', courseType: '', semester: '', yearLevel: '', sectionNumber: '', studentCount: '', learningPlace: defaultLearningPlace }
 
-  const navigate = useNavigate()
+const normalizeText = (value) => String(value ?? '').trim()
+const hasText = (value) => normalizeText(value) !== ''
+const getApiUrl = (apiUrl, path) => `${String(apiUrl || '').replace(/\/$/, '')}${path}`
+const getAuthConfig = () => { const token = localStorage.getItem('mqa_token'); return { headers: token ? { Authorization: `Bearer ${token}` } : {} } }
 
-  const addTeacher = () => {
-    setTeachers((prev) => [...prev, ''])
+const getResponseList = (data, keyList = []) => {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.results)) return data.results
+  for (const key of keyList) if (Array.isArray(data?.[key])) return data[key]
+  return []
+}
+
+const getResponseObject = (data) => {
+  if (Array.isArray(data)) return data[0] || null
+  if (data?.data && typeof data.data === 'object') return data.data
+  if (data?.item && typeof data.item === 'object') return data.item
+  if (data?.result && typeof data.result === 'object') return data.result
+  return data
+}
+
+const safeReadJson = (key) => { try { const rawValue = sessionStorage.getItem(key); return rawValue ? JSON.parse(rawValue) : null } catch (error) { return null } }
+const safeWriteJson = (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)) } catch (error) { console.warn('Cannot write MQA5 draft:', error) } }
+const setActiveDraftKey = (draftKey) => { try { sessionStorage.setItem(MQA5_ACTIVE_DRAFT_KEY, draftKey) } catch (error) { console.warn('Cannot set active MQA5 draft key:', error) } }
+const getActiveDraftKey = () => { try { return sessionStorage.getItem(MQA5_ACTIVE_DRAFT_KEY) || '' } catch (error) { return '' } }
+const getErrorMessage = (error, fallbackMessage) => { const detail = error?.response?.data?.detail; const message = error?.response?.data?.message; if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message || JSON.stringify(item)).join(', '); return detail || message || fallbackMessage }
+
+const getMqa5DraftKey = (state = {}) => {
+  const courseItem = state?.courseItem || {}
+  const keySource = state?.mqa5DraftKey || state?.tqf5Id || state?.mqa5Id || state?.selectedDocumentId || state?.openingCourseItemId || state?.requestedCourseItemId || state?.courseId || state?.courseCode || courseItem?.tqf5Id || courseItem?.mqa5Id || courseItem?.openingCourseItemId || courseItem?.requestedCourseItemId || courseItem?.courseId || courseItem?.courseCode || ''
+  if (keySource) return String(keySource).startsWith('mqa5Draft:') ? String(keySource) : `mqa5Draft:${keySource}`
+  return getActiveDraftKey() || 'mqa5Draft:new'
+}
+
+const writeMqa5Draft = (draftKey, nextDraft) => {
+  const currentDraft = safeReadJson(draftKey) || {}
+  const mergedDraft = { ...currentDraft, ...nextDraft, updatedAt: new Date().toISOString() }
+  safeWriteJson(draftKey, mergedDraft)
+  setActiveDraftKey(draftKey)
+  return mergedDraft
+}
+
+const getTqf3ReferenceId = (state = {}, savedDraft = {}) => normalizeText(
+  state?.referenceTqf3Id || state?.sourceTqf3Id || state?.tqf3Id || state?.mqa3Id ||
+  state?.courseItem?.referenceTqf3Id || state?.courseItem?.sourceTqf3Id || state?.courseItem?.tqf3Id || state?.courseItem?.mqa3Id ||
+  savedDraft?.referenceTqf3Id || savedDraft?.sourceTqf3Id || savedDraft?.tqf3Id || savedDraft?.mqa3Id || ''
+)
+
+const getTqf5DocumentId = (state = {}, savedDraft = {}) => normalizeText(
+  state?.tqf5Id || state?.mqa5Id || state?.selectedDocumentId ||
+  state?.courseItem?.tqf5Id || state?.courseItem?.mqa5Id ||
+  savedDraft?.tqf5Id || savedDraft?.mqa5Id || ''
+)
+
+const buildSemesterText = (semester, academicYear) => {
+  const semesterText = normalizeText(semester)
+  const academicYearText = normalizeText(academicYear)
+  if (semesterText && academicYearText && !semesterText.includes('/')) return `${semesterText}/${academicYearText}`
+  return semesterText || academicYearText
+}
+
+const buildCurriculumMajorText = (curriculumName, majorName) => {
+  const curriculumText = normalizeText(curriculumName)
+  const majorText = normalizeText(majorName)
+  if (curriculumText && majorText) return `${curriculumText} / สาขา${majorText}`
+  return curriculumText || majorText
+}
+
+const buildInitialFormFromState = (state = {}) => {
+  const courseItem = state?.courseItem || {}
+  return {
+    courseCode: normalizeText(state.courseCode || courseItem.courseCode),
+    courseNameThai: normalizeText(state.courseName || courseItem.courseName),
+    courseNameEnglish: normalizeText(state.courseNameEnglish || courseItem.courseNameEnglish),
+    creditText: normalizeText(state.creditText || state.credits || courseItem.creditText || courseItem.credits),
+    curriculumMajor: buildCurriculumMajorText(state.curriculumName || courseItem.curriculumName, state.majorName || courseItem.majorName),
+    courseType: normalizeText(state.courseType || courseItem.courseType || courseItem.courseCategory),
+    semester: buildSemesterText(state.semester || courseItem.semester, state.academicYear || courseItem.academicYear),
+    yearLevel: normalizeText(state.yearLevel || courseItem.yearLevel),
+    sectionNumber: normalizeText(state.sectionNumber || courseItem.sectionNumber),
+    studentCount: normalizeText(state.studentCount || courseItem.studentCount),
+    learningPlace: normalizeText(state.learningPlace || state.location || courseItem.learningPlace || courseItem.location) || defaultLearningPlace,
   }
+}
+
+const splitTeacherText = (value) => {
+  if (Array.isArray(value)) return value.flatMap((item) => splitTeacherText(item))
+  return normalizeText(value).split(/[,/|]+|\n/).map((item) => normalizeText(item)).filter(Boolean)
+}
+
+const getTeacherName = (teacher) => {
+  if (typeof teacher === 'string') return normalizeText(teacher)
+  const teacherData = teacher?.teacher || teacher?.user || teacher?.instructor || teacher
+  const directName = normalizeText(teacherData?.name || teacherData?.full_name || teacherData?.fullName || teacherData?.teacher_name || teacherData?.teacherName || teacherData?.display_name || teacherData?.displayName)
+  if (directName) return directName
+  return normalizeText([teacherData?.prefixname ?? teacherData?.prefix_name ?? teacherData?.prefixName, teacherData?.first_name ?? teacherData?.firstName ?? teacherData?.firstname, teacherData?.last_name ?? teacherData?.lastName ?? teacherData?.lastname].filter(Boolean).join(' '))
+}
+
+const uniqueTeacherNames = (teacherNames = []) => Array.from(new Set(teacherNames.flatMap((teacherName) => splitTeacherText(teacherName)).map(normalizeText).filter(Boolean)))
+const extractTeacherNamesFromList = (value) => getResponseList(value).map((teacher) => getTeacherName(teacher)).filter(Boolean)
+
+const getRequestedCourseItemIdForAssignment = (state = {}) => {
+  const courseItem = state?.courseItem || {}
+  const rawData = courseItem?.rawData || {}
+  return state?.requestedCourseItemId || state?.requested_course_item_id || state?.openingCourseItemId || state?.opening_course_item_id || courseItem?.requestedCourseItemId || courseItem?.requested_course_item_id || courseItem?.openingCourseItemId || courseItem?.opening_course_item_id || rawData?.requestedCourseItemId || rawData?.requested_course_item_id || rawData?.openingCourseItemId || rawData?.opening_course_item_id || rawData?.id || courseItem?.id || ''
+}
+
+const getTeachersFromState = (state = {}) => {
+  const courseItem = state?.courseItem || {}
+  const rawData = courseItem?.rawData || {}
+  const teacherNames = [
+    ...extractTeacherNamesFromList(state?.assignedTeachers),
+    ...extractTeacherNamesFromList(state?.assignedTeacherList),
+    ...extractTeacherNamesFromList(state?.assigned_teachers),
+    ...extractTeacherNamesFromList(state?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(state?.teachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeacherList),
+    ...extractTeacherNamesFromList(courseItem?.assigned_teachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(courseItem?.teachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeacherList),
+    ...extractTeacherNamesFromList(rawData?.assigned_teachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(rawData?.teachers),
+    ...splitTeacherText(state?.assignedTeacher),
+    ...splitTeacherText(state?.assigned_teacher_name),
+    ...splitTeacherText(state?.teacherName),
+    ...splitTeacherText(state?.teacher_name),
+    ...splitTeacherText(courseItem?.assignedTeacher),
+    ...splitTeacherText(courseItem?.assigned_teacher_name),
+    ...splitTeacherText(courseItem?.teacherName),
+    ...splitTeacherText(courseItem?.teacher_name),
+    ...splitTeacherText(rawData?.assignedTeacher),
+    ...splitTeacherText(rawData?.assigned_teacher_name),
+    ...splitTeacherText(rawData?.teacherName),
+    ...splitTeacherText(rawData?.teacher_name),
+  ]
+  const uniqueNames = uniqueTeacherNames(teacherNames)
+  return uniqueNames.length ? uniqueNames : ['']
+}
+
+const getTeachersFromTqf3 = (tqf3Data) => {
+  const teacherNames = [
+    ...extractTeacherNamesFromList(tqf3Data?.instructors),
+    ...extractTeacherNamesFromList(tqf3Data?.teachers),
+    ...extractTeacherNamesFromList(tqf3Data?.teachers_list),
+    ...extractTeacherNamesFromList(tqf3Data?.teacherList),
+    ...extractTeacherNamesFromList(tqf3Data?.assignedTeachers),
+    ...extractTeacherNamesFromList(tqf3Data?.assigned_teachers),
+    ...splitTeacherText(tqf3Data?.teacherNames),
+    ...splitTeacherText(tqf3Data?.teacher_names),
+    ...splitTeacherText(tqf3Data?.assignedTeacher),
+    ...splitTeacherText(tqf3Data?.assigned_teacher_name),
+  ]
+  const uniqueNames = uniqueTeacherNames(teacherNames)
+  return uniqueNames.length ? uniqueNames : null
+}
+
+const getTeachersFromAssignmentData = (data) => {
+  const assignmentData = getResponseObject(data) || {}
+  const teacherNames = [
+    ...extractTeacherNamesFromList(assignmentData?.teachers),
+    ...extractTeacherNamesFromList(assignmentData?.teacherList),
+    ...extractTeacherNamesFromList(assignmentData?.teacher_list),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeachers),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeacherList),
+    ...extractTeacherNamesFromList(assignmentData?.assigned_teachers),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(assignmentData?.instructors),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teacherList),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teacher_list),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assignedTeachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assignedTeacherList),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assigned_teachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.instructors),
+    ...splitTeacherText(assignmentData?.teacherNames),
+    ...splitTeacherText(assignmentData?.teacher_names),
+    ...splitTeacherText(assignmentData?.assignedTeacher),
+    ...splitTeacherText(assignmentData?.assigned_teacher_name),
+    ...splitTeacherText(assignmentData?.teacherName),
+    ...splitTeacherText(assignmentData?.teacher_name),
+    ...splitTeacherText(assignmentData?.data?.teacherNames),
+    ...splitTeacherText(assignmentData?.data?.teacher_names),
+    ...splitTeacherText(assignmentData?.data?.assignedTeacher),
+    ...splitTeacherText(assignmentData?.data?.assigned_teacher_name),
+  ]
+  return uniqueTeacherNames(teacherNames)
+}
+
+const fetchAssignedTeacherListForMqa5 = async (apiUrl, navigationState = {}) => {
+  const requestedCourseItemId = getRequestedCourseItemIdForAssignment(navigationState)
+  if (!requestedCourseItemId) return []
+  try {
+    const response = await axios.get(getApiUrl(apiUrl, `${COURSE_ASSIGNMENT_ENDPOINT}/${requestedCourseItemId}`), getAuthConfig())
+    return getTeachersFromAssignmentData(response.data)
+  } catch (error) {
+    console.warn('Cannot fetch assigned teachers for MQA5:', error)
+    return []
+  }
+}
+
+const resolveTeacherListForMqa5 = async (apiUrl, navigationState = {}, tqf3Data = {}, savedTeachers = []) => {
+  const assignmentTeacherList = await fetchAssignedTeacherListForMqa5(apiUrl, navigationState)
+  if (assignmentTeacherList.length) return assignmentTeacherList
+
+  const savedTeacherList = uniqueTeacherNames(savedTeachers)
+  if (savedTeacherList.length) return savedTeacherList
+
+  const tqf3TeacherList = getTeachersFromTqf3(tqf3Data)
+  if (tqf3TeacherList?.length) return tqf3TeacherList
+
+  const stateTeacherList = getTeachersFromState(navigationState)
+  if (stateTeacherList.length) return stateTeacherList
+
+  return ['']
+}
+
+const buildFormFromTqf3 = (tqf3Data = {}, fallbackForm = emptyForm) => ({
+  courseCode: normalizeText(tqf3Data.course_code_snap || tqf3Data.courseCodeSnap || tqf3Data.course_code || tqf3Data.courseCode) || fallbackForm.courseCode,
+  courseNameThai: normalizeText(tqf3Data.course_name_th_snap || tqf3Data.courseNameThSnap || tqf3Data.course_name_th || tqf3Data.courseNameThai || tqf3Data.course_name) || fallbackForm.courseNameThai,
+  courseNameEnglish: normalizeText(tqf3Data.course_name_en_snap || tqf3Data.courseNameEnSnap || tqf3Data.course_name_en || tqf3Data.courseNameEnglish) || fallbackForm.courseNameEnglish,
+  creditText: normalizeText(tqf3Data.credits_snap || tqf3Data.creditsSnap || tqf3Data.credit || tqf3Data.credits) || fallbackForm.creditText,
+  curriculumMajor: normalizeText(tqf3Data.curriculum_name || tqf3Data.curriculumName) || fallbackForm.curriculumMajor,
+  courseType: normalizeText(tqf3Data.course_category || tqf3Data.courseCategory) || fallbackForm.courseType,
+  semester: buildSemesterText(tqf3Data.semester, tqf3Data.academic_year || tqf3Data.academicYear) || fallbackForm.semester,
+  yearLevel: normalizeText(tqf3Data.year_level || tqf3Data.yearLevel) || fallbackForm.yearLevel,
+  sectionNumber: normalizeText(tqf3Data.section_group || tqf3Data.sectionGroup || tqf3Data.section_number || tqf3Data.sectionNumber) || fallbackForm.sectionNumber,
+  studentCount: normalizeText(tqf3Data.student_count || tqf3Data.studentCount) || fallbackForm.studentCount,
+  learningPlace: normalizeText(tqf3Data.location || tqf3Data.learningPlace) || fallbackForm.learningPlace || defaultLearningPlace,
+})
+
+const mergeMissingFormValues = (currentForm, nextForm) => {
+  const mergedForm = { ...currentForm }
+  Object.keys(nextForm).forEach((key) => { if (!hasText(mergedForm[key])) mergedForm[key] = nextForm[key] })
+  return mergedForm
+}
+
+function Mqa5Insert1Page() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const apiUrl = import.meta.env.VITE_API_URL
+  const locationState = useMemo(() => location.state || {}, [location.state])
+  const draftKey = useMemo(() => getMqa5DraftKey(locationState), [locationState])
+  const savedDraft = useMemo(() => safeReadJson(draftKey), [draftKey])
+  const navigationState = useMemo(() => Object.keys(locationState).length ? locationState : savedDraft?.navigationState || {}, [locationState, savedDraft])
+  const tqf3ReferenceId = useMemo(() => getTqf3ReferenceId(navigationState, savedDraft), [navigationState, savedDraft])
+  const tqf5DocumentId = useMemo(() => getTqf5DocumentId(navigationState, savedDraft), [navigationState, savedDraft])
+  const savedPageData = savedDraft?.mqa5Insert1 || navigationState?.mqa5Insert1 || null
+  const initialForm = savedPageData?.form || buildInitialFormFromState(navigationState)
+  const initialTeachers = savedPageData?.teachers?.length ? savedPageData.teachers : getTeachersFromState(navigationState)
+
+  const [form, setForm] = useState(initialForm)
+  const [teachers, setTeachers] = useState(initialTeachers)
+  const [isLoadingTqf3, setIsLoadingTqf3] = useState(false)
+  const [tqf3ErrorMessage, setTqf3ErrorMessage] = useState('')
+
+  const isPageComplete = useMemo(() => {
+    return hasText(form.courseCode) && hasText(form.courseNameThai) && hasText(form.courseNameEnglish) && hasText(form.creditText) && hasText(form.curriculumMajor) && hasText(form.courseType) && hasText(form.semester) && hasText(form.yearLevel) && hasText(form.sectionNumber) && hasText(form.studentCount) && hasText(form.learningPlace) && teachers.length > 0 && teachers.every((teacher) => hasText(teacher))
+  }, [form, teachers])
+
+  useEffect(() => {
+    if (!tqf3ReferenceId) {
+      setTqf3ErrorMessage('ไม่พบรหัสอ้างอิง มคอ.3 กรุณากลับไปเลือกเอกสารจากหน้ารายวิชาที่ได้รับมอบหมายใหม่อีกครั้ง')
+      return
+    }
+
+    let isMounted = true
+    const fetchTqf3Reference = async () => {
+      setIsLoadingTqf3(true)
+      setTqf3ErrorMessage('')
+
+      try {
+        const response = await axios.get(getApiUrl(apiUrl, `/tqf3/${tqf3ReferenceId}`), getAuthConfig())
+        const tqf3Data = getResponseObject(response.data) || {}
+        const nextForm = buildFormFromTqf3(tqf3Data, buildInitialFormFromState(navigationState))
+        const nextTeachers = await resolveTeacherListForMqa5(apiUrl, navigationState, tqf3Data, savedPageData?.teachers || [])
+
+        if (!isMounted) return
+
+        if (savedPageData?.form) setForm((prev) => mergeMissingFormValues(prev, nextForm))
+        else setForm(nextForm)
+
+        setTeachers(nextTeachers.length ? nextTeachers : [''])
+      } catch (error) {
+        if (!isMounted) return
+        console.error('Error fetching TQF3 reference for MQA5:', error)
+        const nextTeachers = await resolveTeacherListForMqa5(apiUrl, navigationState, {}, savedPageData?.teachers || [])
+        if (isMounted) setTeachers(nextTeachers.length ? nextTeachers : [''])
+        setTqf3ErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงข้อมูลจาก มคอ.3 ได้ กรุณาลองใหม่อีกครั้ง'))
+      } finally {
+        if (isMounted) setIsLoadingTqf3(false)
+      }
+    }
+
+    fetchTqf3Reference()
+    return () => { isMounted = false }
+  }, [apiUrl, navigationState, savedPageData?.form, savedPageData?.teachers, tqf3ReferenceId])
+
+  useEffect(() => {
+    const cleanTeachers = uniqueTeacherNames(teachers)
+    const teacherObjectList = cleanTeachers.map((teacherName, index) => ({ id: String(index + 1), teacherName, name: teacherName }))
+    const nextState = {
+      ...navigationState,
+      mqa5DraftKey: draftKey,
+      referenceTqf3Id: tqf3ReferenceId,
+      sourceTqf3Id: tqf3ReferenceId,
+      tqf3Id: tqf3ReferenceId,
+      mqa3Id: tqf3ReferenceId,
+      tqf5Id: tqf5DocumentId,
+      mqa5Id: tqf5DocumentId,
+      assignedTeacher: cleanTeachers.join(', '),
+      assignedTeachers: cleanTeachers,
+      assignedTeacherList: teacherObjectList,
+      assigned_teachers: teacherObjectList,
+      mqa5Insert1: { form, teachers: cleanTeachers },
+      courseItem: {
+        ...(navigationState?.courseItem || {}),
+        assignedTeacher: cleanTeachers.join(', '),
+        assignedTeachers: cleanTeachers,
+        assignedTeacherList: teacherObjectList,
+        assigned_teachers: teacherObjectList,
+        assignedTeachersRaw: teacherObjectList,
+      },
+    }
+    writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers: cleanTeachers } })
+  }, [draftKey, form, navigationState, teachers, tqf3ReferenceId, tqf5DocumentId])
+
+  const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }))
+
+  const addTeacher = () => setTeachers((prev) => [...prev, ''])
 
   const removeTeacher = (index) => {
     setTeachers((prev) => {
@@ -36,6 +369,37 @@ function Mqa5Insert1Page() {
       next[index] = value
       return next
     })
+  }
+
+  const handleNext = () => {
+    if (!isPageComplete || isLoadingTqf3 || tqf3ErrorMessage) return
+    const cleanTeachers = uniqueTeacherNames(teachers)
+    const teacherObjectList = cleanTeachers.map((teacherName, index) => ({ id: String(index + 1), teacherName, name: teacherName }))
+    const nextState = {
+      ...navigationState,
+      mqa5DraftKey: draftKey,
+      referenceTqf3Id: tqf3ReferenceId,
+      sourceTqf3Id: tqf3ReferenceId,
+      tqf3Id: tqf3ReferenceId,
+      mqa3Id: tqf3ReferenceId,
+      tqf5Id: tqf5DocumentId,
+      mqa5Id: tqf5DocumentId,
+      assignedTeacher: cleanTeachers.join(', '),
+      assignedTeachers: cleanTeachers,
+      assignedTeacherList: teacherObjectList,
+      assigned_teachers: teacherObjectList,
+      mqa5Insert1: { form, teachers: cleanTeachers },
+      courseItem: {
+        ...(navigationState?.courseItem || {}),
+        assignedTeacher: cleanTeachers.join(', '),
+        assignedTeachers: cleanTeachers,
+        assignedTeacherList: teacherObjectList,
+        assigned_teachers: teacherObjectList,
+        assignedTeachersRaw: teacherObjectList,
+      },
+    }
+    writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers: cleanTeachers } })
+    navigate('/mqa5Insert-2', { state: nextState })
   }
 
   return (
@@ -53,7 +417,7 @@ function Mqa5Insert1Page() {
                 ข้อมูลทั่วไป
               </Typography>
               <Typography className={styles.pageDescription}>
-                กรอกข้อมูลพื้นฐานของรายวิชาเพื่อใช้เป็นข้อมูลตั้งต้นของแบบฟอร์ม มคอ.5
+                ดึงข้อมูลตั้งต้นจาก มคอ.3 ที่บันทึกไว้แล้ว เพื่อใช้เป็นข้อมูลทั่วไปของแบบฟอร์ม มคอ.5
               </Typography>
             </Box>
 
@@ -62,10 +426,23 @@ function Mqa5Insert1Page() {
                 สถานะหน้านี้
               </Typography>
               <Typography className={styles.pageStatusValue}>
-                ยังไม่ครบ
+                {isPageComplete ? 'ครบแล้ว' : 'ยังไม่ครบ'}
               </Typography>
             </Box>
           </Box>
+
+          {isLoadingTqf3 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+              <CircularProgress size={22} />
+              <Typography color="text.secondary">กำลังดึงข้อมูลจาก มคอ.3...</Typography>
+            </Box>
+          )}
+
+          {tqf3ErrorMessage && (
+            <Box sx={{ mb: 2, p: 2, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.18)' }}>
+              <Typography color="error" fontWeight={700}>{tqf3ErrorMessage}</Typography>
+            </Box>
+          )}
 
           <Box className={styles.sectionGrid}>
             <Box className={styles.sectionCard}>
@@ -79,23 +456,9 @@ function Mqa5Insert1Page() {
               </Box>
 
               <Box className={styles.courseCodeGrid}>
-                <TextField
-                  label="รหัสวิชา"
-                  placeholder="เช่น BIS12345"
-                  fullWidth
-                />
-
-                <TextField
-                  label="ชื่อรายวิชา (ภาษาไทย)"
-                  placeholder="เช่น การวิเคราะห์ระบบ"
-                  fullWidth
-                />
-
-                <TextField
-                  label="ชื่อรายวิชา (ภาษาอังกฤษ)"
-                  placeholder="เช่น Systems Analysis"
-                  fullWidth
-                />
+                <TextField label="รหัสวิชา" value={form.courseCode} onChange={(event) => updateForm('courseCode', event.target.value)} placeholder="เช่น BIS12345" fullWidth />
+                <TextField label="ชื่อรายวิชา (ภาษาไทย)" value={form.courseNameThai} onChange={(event) => updateForm('courseNameThai', event.target.value)} placeholder="เช่น การวิเคราะห์ระบบ" fullWidth />
+                <TextField label="ชื่อรายวิชา (ภาษาอังกฤษ)" value={form.courseNameEnglish} onChange={(event) => updateForm('courseNameEnglish', event.target.value)} placeholder="เช่น Systems Analysis" fullWidth />
               </Box>
             </Box>
 
@@ -110,12 +473,7 @@ function Mqa5Insert1Page() {
               </Box>
 
               <Box className={styles.singleFieldRow}>
-                <TextField
-                  label="จำนวนหน่วยกิต"
-                  type="number"
-                  placeholder="เช่น 3"
-                  fullWidth
-                />
+                <TextField label="จำนวนหน่วยกิต" value={form.creditText} onChange={(event) => updateForm('creditText', event.target.value)} placeholder="เช่น 3 หน่วยกิต (3-0-6)" fullWidth />
               </Box>
             </Box>
 
@@ -130,17 +488,8 @@ function Mqa5Insert1Page() {
               </Box>
 
               <Box className={styles.courseTypeGrid}>
-                <TextField
-                  label="หลักสูตร / สาขาวิชา"
-                  placeholder="เช่น ระบบสารสนเทศทางธุรกิจ"
-                  fullWidth
-                />
-
-                <TextField
-                  label="ประเภทรายวิชา"
-                  placeholder="เช่น วิชาบังคับ"
-                  fullWidth
-                />
+                <TextField label="หลักสูตร / สาขาวิชา" value={form.curriculumMajor} onChange={(event) => updateForm('curriculumMajor', event.target.value)} placeholder="เช่น หลักสูตรวิทยาศาสตรบัณฑิต / สาขาวิทยาการคอมพิวเตอร์" fullWidth />
+                <TextField label="ประเภทรายวิชา" value={form.courseType} onChange={(event) => updateForm('courseType', event.target.value)} placeholder="เช่น วิชาบังคับ" fullWidth />
               </Box>
             </Box>
 
@@ -157,32 +506,16 @@ function Mqa5Insert1Page() {
               <Box className={styles.teacherList}>
                 {teachers.map((teacher, index) => (
                   <Box key={index} className={styles.teacherRow}>
-                    <TextField
-                      label={`ชื่ออาจารย์คนที่ ${index + 1}`}
-                      value={teacher}
-                      onChange={(event) => updateTeacher(index, event.target.value)}
-                      placeholder="กรอกชื่ออาจารย์"
-                      fullWidth
-                    />
+                    <TextField label={`ชื่ออาจารย์คนที่ ${index + 1}`} value={teacher} onChange={(event) => updateTeacher(index, event.target.value)} placeholder="กรอกชื่ออาจารย์" fullWidth />
 
-                    <IconButton
-                      color="error"
-                      onClick={() => removeTeacher(index)}
-                      disabled={teachers.length === 1}
-                      className={styles.deleteButton}
-                    >
+                    <IconButton color="error" onClick={() => removeTeacher(index)} disabled={teachers.length === 1} className={styles.deleteButton}>
                       <DeleteOutlineIcon />
                     </IconButton>
                   </Box>
                 ))}
               </Box>
 
-              <Button
-                startIcon={<AddCircleOutlineIcon />}
-                variant="outlined"
-                onClick={addTeacher}
-                className={styles.addButton}
-              >
+              <Button startIcon={<AddCircleOutlineIcon />} variant="outlined" onClick={addTeacher} className={styles.addButton}>
                 เพิ่มอาจารย์
               </Button>
             </Box>
@@ -198,30 +531,10 @@ function Mqa5Insert1Page() {
               </Box>
 
               <Box className={styles.fieldGridFour}>
-                <TextField
-                  label="ภาคการศึกษา"
-                  placeholder="เช่น 1"
-                  fullWidth
-                />
-
-                <TextField
-                  label="ชั้นปี"
-                  placeholder="เช่น 3"
-                  fullWidth
-                />
-
-                <TextField
-                  label="กลุ่มเรียน"
-                  placeholder="เช่น BIS3/1"
-                  fullWidth
-                />
-
-                <TextField
-                  label="จำนวนนักศึกษา"
-                  type="number"
-                  placeholder="เช่น 40"
-                  fullWidth
-                />
+                <TextField label="ภาคการศึกษา" value={form.semester} onChange={(event) => updateForm('semester', event.target.value)} placeholder="เช่น 1/2568" fullWidth />
+                <TextField label="ชั้นปี" value={form.yearLevel} onChange={(event) => updateForm('yearLevel', event.target.value)} placeholder="เช่น 3" fullWidth />
+                <TextField label="กลุ่มเรียน" value={form.sectionNumber} onChange={(event) => updateForm('sectionNumber', event.target.value)} placeholder="เช่น BIS3/1" fullWidth />
+                <TextField label="จำนวนนักศึกษา" value={form.studentCount} onChange={(event) => updateForm('studentCount', event.target.value)} placeholder="เช่น 40" fullWidth />
               </Box>
             </Box>
 
@@ -236,31 +549,17 @@ function Mqa5Insert1Page() {
               </Box>
 
               <Box className={styles.school}>
-                <TextField
-                  label="สถานที่เรียน"
-                  defaultValue="คณะบริหารธุรกิจและเทคโนโลยีสารสนเทศ มหาวิทยาลัยเทคโนโลยีราชมงคลตะวันออก"
-                  fullWidth
-                />
+                <TextField label="สถานที่เรียน" value={form.learningPlace} onChange={(event) => updateForm('learningPlace', event.target.value)} fullWidth />
               </Box>
             </Box>
           </Box>
 
           <Box className={styles.actionBar}>
-            <Button
-              variant="outlined"
-              startIcon={<NavigateBeforeIcon />}
-              disabled
-              className={styles.backButton}
-            >
+            <Button variant="outlined" startIcon={<NavigateBeforeIcon />} disabled className={styles.backButton}>
               ย้อนกลับ
             </Button>
 
-            <Button
-              variant="contained"
-              endIcon={<NavigateNextIcon />}
-              className={styles.nextButton}
-              onClick={() => navigate('/mqa5Insert-2')}
-            >
+            <Button variant="contained" endIcon={<NavigateNextIcon />} className={styles.nextButton} onClick={handleNext} disabled={!isPageComplete || isLoadingTqf3 || Boolean(tqf3ErrorMessage)}>
               ถัดไป
             </Button>
           </Box>
