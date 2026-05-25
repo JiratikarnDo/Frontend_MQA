@@ -17,6 +17,7 @@ import Mqa5FormNav from '../../../components/mqa5/mqa5FormNav'
 import styles from './mqa5Insert1Page.module.css'
 
 const MQA5_ACTIVE_DRAFT_KEY = 'mqa5ActiveDraftKey'
+const COURSE_ASSIGNMENT_ENDPOINT = '/course-assignment'
 const defaultLearningPlace = 'คณะบริหารธุรกิจและเทคโนโลยีสารสนเทศ มหาวิทยาลัยเทคโนโลยีราชมงคลตะวันออก'
 const emptyForm = { courseCode: '', courseNameThai: '', courseNameEnglish: '', creditText: '', curriculumMajor: '', courseType: '', semester: '', yearLevel: '', sectionNumber: '', studentCount: '', learningPlace: defaultLearningPlace }
 
@@ -24,7 +25,24 @@ const normalizeText = (value) => String(value ?? '').trim()
 const hasText = (value) => normalizeText(value) !== ''
 const getApiUrl = (apiUrl, path) => `${String(apiUrl || '').replace(/\/$/, '')}${path}`
 const getAuthConfig = () => { const token = localStorage.getItem('mqa_token'); return { headers: token ? { Authorization: `Bearer ${token}` } : {} } }
-const getResponseObject = (data) => { if (Array.isArray(data)) return data[0] || null; if (data?.data && typeof data.data === 'object') return data.data; if (data?.item && typeof data.item === 'object') return data.item; if (data?.result && typeof data.result === 'object') return data.result; return data }
+
+const getResponseList = (data, keyList = []) => {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.results)) return data.results
+  for (const key of keyList) if (Array.isArray(data?.[key])) return data[key]
+  return []
+}
+
+const getResponseObject = (data) => {
+  if (Array.isArray(data)) return data[0] || null
+  if (data?.data && typeof data.data === 'object') return data.data
+  if (data?.item && typeof data.item === 'object') return data.item
+  if (data?.result && typeof data.result === 'object') return data.result
+  return data
+}
+
 const safeReadJson = (key) => { try { const rawValue = sessionStorage.getItem(key); return rawValue ? JSON.parse(rawValue) : null } catch (error) { return null } }
 const safeWriteJson = (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)) } catch (error) { console.warn('Cannot write MQA5 draft:', error) } }
 const setActiveDraftKey = (draftKey) => { try { sessionStorage.setItem(MQA5_ACTIVE_DRAFT_KEY, draftKey) } catch (error) { console.warn('Cannot set active MQA5 draft key:', error) } }
@@ -89,18 +107,139 @@ const buildInitialFormFromState = (state = {}) => {
   }
 }
 
-const getTeacherName = (teacher) => normalizeText(teacher?.name || teacher?.full_name || teacher?.fullName || teacher?.teacher_name || teacher?.teacherName || teacher)
+const splitTeacherText = (value) => {
+  if (Array.isArray(value)) return value.flatMap((item) => splitTeacherText(item))
+  return normalizeText(value).split(/[,/|]+|\n/).map((item) => normalizeText(item)).filter(Boolean)
+}
+
+const getTeacherName = (teacher) => {
+  if (typeof teacher === 'string') return normalizeText(teacher)
+  const teacherData = teacher?.teacher || teacher?.user || teacher?.instructor || teacher
+  const directName = normalizeText(teacherData?.name || teacherData?.full_name || teacherData?.fullName || teacherData?.teacher_name || teacherData?.teacherName || teacherData?.display_name || teacherData?.displayName)
+  if (directName) return directName
+  return normalizeText([teacherData?.prefixname ?? teacherData?.prefix_name ?? teacherData?.prefixName, teacherData?.first_name ?? teacherData?.firstName ?? teacherData?.firstname, teacherData?.last_name ?? teacherData?.lastName ?? teacherData?.lastname].filter(Boolean).join(' '))
+}
+
+const uniqueTeacherNames = (teacherNames = []) => Array.from(new Set(teacherNames.flatMap((teacherName) => splitTeacherText(teacherName)).map(normalizeText).filter(Boolean)))
+const extractTeacherNamesFromList = (value) => getResponseList(value).map((teacher) => getTeacherName(teacher)).filter(Boolean)
+
+const getRequestedCourseItemIdForAssignment = (state = {}) => {
+  const courseItem = state?.courseItem || {}
+  const rawData = courseItem?.rawData || {}
+  return state?.requestedCourseItemId || state?.requested_course_item_id || state?.openingCourseItemId || state?.opening_course_item_id || courseItem?.requestedCourseItemId || courseItem?.requested_course_item_id || courseItem?.openingCourseItemId || courseItem?.opening_course_item_id || rawData?.requestedCourseItemId || rawData?.requested_course_item_id || rawData?.openingCourseItemId || rawData?.opening_course_item_id || rawData?.id || courseItem?.id || ''
+}
+
 const getTeachersFromState = (state = {}) => {
   const courseItem = state?.courseItem || {}
-  const rawTeachers = state.assignedTeachers || state.teachers || courseItem.assignedTeachers || courseItem.teachers || state.assignedTeacher || courseItem.assignedTeacher || ''
-  const teacherList = Array.isArray(rawTeachers) ? rawTeachers.map(getTeacherName).filter(Boolean) : normalizeText(rawTeachers).split(',').map((item) => normalizeText(item)).filter(Boolean)
-  return teacherList.length ? teacherList : ['']
+  const rawData = courseItem?.rawData || {}
+  const teacherNames = [
+    ...extractTeacherNamesFromList(state?.assignedTeachers),
+    ...extractTeacherNamesFromList(state?.assignedTeacherList),
+    ...extractTeacherNamesFromList(state?.assigned_teachers),
+    ...extractTeacherNamesFromList(state?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(state?.teachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeacherList),
+    ...extractTeacherNamesFromList(courseItem?.assigned_teachers),
+    ...extractTeacherNamesFromList(courseItem?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(courseItem?.teachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeacherList),
+    ...extractTeacherNamesFromList(rawData?.assigned_teachers),
+    ...extractTeacherNamesFromList(rawData?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(rawData?.teachers),
+    ...splitTeacherText(state?.assignedTeacher),
+    ...splitTeacherText(state?.assigned_teacher_name),
+    ...splitTeacherText(state?.teacherName),
+    ...splitTeacherText(state?.teacher_name),
+    ...splitTeacherText(courseItem?.assignedTeacher),
+    ...splitTeacherText(courseItem?.assigned_teacher_name),
+    ...splitTeacherText(courseItem?.teacherName),
+    ...splitTeacherText(courseItem?.teacher_name),
+    ...splitTeacherText(rawData?.assignedTeacher),
+    ...splitTeacherText(rawData?.assigned_teacher_name),
+    ...splitTeacherText(rawData?.teacherName),
+    ...splitTeacherText(rawData?.teacher_name),
+  ]
+  const uniqueNames = uniqueTeacherNames(teacherNames)
+  return uniqueNames.length ? uniqueNames : ['']
 }
 
 const getTeachersFromTqf3 = (tqf3Data) => {
-  const rawTeachers = Array.isArray(tqf3Data?.instructors) ? tqf3Data.instructors : []
-  const teacherList = rawTeachers.map(getTeacherName).filter(Boolean)
-  return teacherList.length ? teacherList : null
+  const teacherNames = [
+    ...extractTeacherNamesFromList(tqf3Data?.instructors),
+    ...extractTeacherNamesFromList(tqf3Data?.teachers),
+    ...extractTeacherNamesFromList(tqf3Data?.teachers_list),
+    ...extractTeacherNamesFromList(tqf3Data?.teacherList),
+    ...extractTeacherNamesFromList(tqf3Data?.assignedTeachers),
+    ...extractTeacherNamesFromList(tqf3Data?.assigned_teachers),
+    ...splitTeacherText(tqf3Data?.teacherNames),
+    ...splitTeacherText(tqf3Data?.teacher_names),
+    ...splitTeacherText(tqf3Data?.assignedTeacher),
+    ...splitTeacherText(tqf3Data?.assigned_teacher_name),
+  ]
+  const uniqueNames = uniqueTeacherNames(teacherNames)
+  return uniqueNames.length ? uniqueNames : null
+}
+
+const getTeachersFromAssignmentData = (data) => {
+  const assignmentData = getResponseObject(data) || {}
+  const teacherNames = [
+    ...extractTeacherNamesFromList(assignmentData?.teachers),
+    ...extractTeacherNamesFromList(assignmentData?.teacherList),
+    ...extractTeacherNamesFromList(assignmentData?.teacher_list),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeachers),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeacherList),
+    ...extractTeacherNamesFromList(assignmentData?.assigned_teachers),
+    ...extractTeacherNamesFromList(assignmentData?.assignedTeachersRaw),
+    ...extractTeacherNamesFromList(assignmentData?.instructors),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teacherList),
+    ...extractTeacherNamesFromList(assignmentData?.data?.teacher_list),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assignedTeachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assignedTeacherList),
+    ...extractTeacherNamesFromList(assignmentData?.data?.assigned_teachers),
+    ...extractTeacherNamesFromList(assignmentData?.data?.instructors),
+    ...splitTeacherText(assignmentData?.teacherNames),
+    ...splitTeacherText(assignmentData?.teacher_names),
+    ...splitTeacherText(assignmentData?.assignedTeacher),
+    ...splitTeacherText(assignmentData?.assigned_teacher_name),
+    ...splitTeacherText(assignmentData?.teacherName),
+    ...splitTeacherText(assignmentData?.teacher_name),
+    ...splitTeacherText(assignmentData?.data?.teacherNames),
+    ...splitTeacherText(assignmentData?.data?.teacher_names),
+    ...splitTeacherText(assignmentData?.data?.assignedTeacher),
+    ...splitTeacherText(assignmentData?.data?.assigned_teacher_name),
+  ]
+  return uniqueTeacherNames(teacherNames)
+}
+
+const fetchAssignedTeacherListForMqa5 = async (apiUrl, navigationState = {}) => {
+  const requestedCourseItemId = getRequestedCourseItemIdForAssignment(navigationState)
+  if (!requestedCourseItemId) return []
+  try {
+    const response = await axios.get(getApiUrl(apiUrl, `${COURSE_ASSIGNMENT_ENDPOINT}/${requestedCourseItemId}`), getAuthConfig())
+    return getTeachersFromAssignmentData(response.data)
+  } catch (error) {
+    console.warn('Cannot fetch assigned teachers for MQA5:', error)
+    return []
+  }
+}
+
+const resolveTeacherListForMqa5 = async (apiUrl, navigationState = {}, tqf3Data = {}, savedTeachers = []) => {
+  const assignmentTeacherList = await fetchAssignedTeacherListForMqa5(apiUrl, navigationState)
+  if (assignmentTeacherList.length) return assignmentTeacherList
+
+  const savedTeacherList = uniqueTeacherNames(savedTeachers)
+  if (savedTeacherList.length) return savedTeacherList
+
+  const tqf3TeacherList = getTeachersFromTqf3(tqf3Data)
+  if (tqf3TeacherList?.length) return tqf3TeacherList
+
+  const stateTeacherList = getTeachersFromState(navigationState)
+  if (stateTeacherList.length) return stateTeacherList
+
+  return ['']
 }
 
 const buildFormFromTqf3 = (tqf3Data = {}, fallbackForm = emptyForm) => ({
@@ -161,22 +300,19 @@ function Mqa5Insert1Page() {
         const response = await axios.get(getApiUrl(apiUrl, `/tqf3/${tqf3ReferenceId}`), getAuthConfig())
         const tqf3Data = getResponseObject(response.data) || {}
         const nextForm = buildFormFromTqf3(tqf3Data, buildInitialFormFromState(navigationState))
-        const nextTeachers = getTeachersFromTqf3(tqf3Data)
+        const nextTeachers = await resolveTeacherListForMqa5(apiUrl, navigationState, tqf3Data, savedPageData?.teachers || [])
 
         if (!isMounted) return
 
-        if (savedPageData?.form) {
-          setForm((prev) => mergeMissingFormValues(prev, nextForm))
-        } else {
-          setForm(nextForm)
-        }
+        if (savedPageData?.form) setForm((prev) => mergeMissingFormValues(prev, nextForm))
+        else setForm(nextForm)
 
-        if (nextTeachers && !savedPageData?.teachers?.length) {
-          setTeachers(nextTeachers)
-        }
+        setTeachers(nextTeachers.length ? nextTeachers : [''])
       } catch (error) {
         if (!isMounted) return
         console.error('Error fetching TQF3 reference for MQA5:', error)
+        const nextTeachers = await resolveTeacherListForMqa5(apiUrl, navigationState, {}, savedPageData?.teachers || [])
+        if (isMounted) setTeachers(nextTeachers.length ? nextTeachers : [''])
         setTqf3ErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงข้อมูลจาก มคอ.3 ได้ กรุณาลองใหม่อีกครั้ง'))
       } finally {
         if (isMounted) setIsLoadingTqf3(false)
@@ -185,11 +321,35 @@ function Mqa5Insert1Page() {
 
     fetchTqf3Reference()
     return () => { isMounted = false }
-  }, [apiUrl, navigationState, savedPageData?.form, savedPageData?.teachers?.length, tqf3ReferenceId])
+  }, [apiUrl, navigationState, savedPageData?.form, savedPageData?.teachers, tqf3ReferenceId])
 
   useEffect(() => {
-    const nextState = { ...navigationState, mqa5DraftKey: draftKey, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers } }
-    writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers } })
+    const cleanTeachers = uniqueTeacherNames(teachers)
+    const teacherObjectList = cleanTeachers.map((teacherName, index) => ({ id: String(index + 1), teacherName, name: teacherName }))
+    const nextState = {
+      ...navigationState,
+      mqa5DraftKey: draftKey,
+      referenceTqf3Id: tqf3ReferenceId,
+      sourceTqf3Id: tqf3ReferenceId,
+      tqf3Id: tqf3ReferenceId,
+      mqa3Id: tqf3ReferenceId,
+      tqf5Id: tqf5DocumentId,
+      mqa5Id: tqf5DocumentId,
+      assignedTeacher: cleanTeachers.join(', '),
+      assignedTeachers: cleanTeachers,
+      assignedTeacherList: teacherObjectList,
+      assigned_teachers: teacherObjectList,
+      mqa5Insert1: { form, teachers: cleanTeachers },
+      courseItem: {
+        ...(navigationState?.courseItem || {}),
+        assignedTeacher: cleanTeachers.join(', '),
+        assignedTeachers: cleanTeachers,
+        assignedTeacherList: teacherObjectList,
+        assigned_teachers: teacherObjectList,
+        assignedTeachersRaw: teacherObjectList,
+      },
+    }
+    writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers: cleanTeachers } })
   }, [draftKey, form, navigationState, teachers, tqf3ReferenceId, tqf5DocumentId])
 
   const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }))
@@ -213,8 +373,32 @@ function Mqa5Insert1Page() {
 
   const handleNext = () => {
     if (!isPageComplete || isLoadingTqf3 || tqf3ErrorMessage) return
-    const nextState = { ...navigationState, mqa5DraftKey: draftKey, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers } }
-    writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers } })
+    const cleanTeachers = uniqueTeacherNames(teachers)
+    const teacherObjectList = cleanTeachers.map((teacherName, index) => ({ id: String(index + 1), teacherName, name: teacherName }))
+    const nextState = {
+      ...navigationState,
+      mqa5DraftKey: draftKey,
+      referenceTqf3Id: tqf3ReferenceId,
+      sourceTqf3Id: tqf3ReferenceId,
+      tqf3Id: tqf3ReferenceId,
+      mqa3Id: tqf3ReferenceId,
+      tqf5Id: tqf5DocumentId,
+      mqa5Id: tqf5DocumentId,
+      assignedTeacher: cleanTeachers.join(', '),
+      assignedTeachers: cleanTeachers,
+      assignedTeacherList: teacherObjectList,
+      assigned_teachers: teacherObjectList,
+      mqa5Insert1: { form, teachers: cleanTeachers },
+      courseItem: {
+        ...(navigationState?.courseItem || {}),
+        assignedTeacher: cleanTeachers.join(', '),
+        assignedTeachers: cleanTeachers,
+        assignedTeacherList: teacherObjectList,
+        assigned_teachers: teacherObjectList,
+        assignedTeachersRaw: teacherObjectList,
+      },
+    }
+    writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert1: { form, teachers: cleanTeachers } })
     navigate('/mqa5Insert-2', { state: nextState })
   }
 

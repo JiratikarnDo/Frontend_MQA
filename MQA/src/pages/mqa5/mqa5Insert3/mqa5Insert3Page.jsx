@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
+import axios from 'axios'
+import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -9,20 +10,29 @@ import Mqa5FormNav from '../../../components/mqa5/mqa5FormNav'
 import styles from './mqa5Insert3Page.module.css'
 
 const MQA5_ACTIVE_DRAFT_KEY = 'mqa5ActiveDraftKey'
+const TQF5_DETAIL_ENDPOINTS = ['/tqf5', '/mqa5']
+
 const defaultSec13 = { issue131: '', impact131: '', issue132: '', impact132: '' }
 const defaultSec141 = { critique: '', teacherComment: '' }
 const defaultRow142 = { critique: '', teacherComment: '' }
 
 const normalizeText = (value) => String(value ?? '').trim()
 const hasText = (value) => normalizeText(value) !== ''
+const getApiUrl = (apiUrl, path) => `${String(apiUrl || '').replace(/\/$/, '')}${path}`
+const getAuthConfig = () => { const token = localStorage.getItem('mqa_token'); return { headers: token ? { Authorization: `Bearer ${token}` } : {} } }
 const safeReadJson = (key) => { try { const rawValue = sessionStorage.getItem(key); return rawValue ? JSON.parse(rawValue) : null } catch { return null } }
 const safeWriteJson = (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)) } catch (error) { console.warn('Cannot write MQA5 draft:', error) } }
 const getActiveDraftKey = () => { try { return sessionStorage.getItem(MQA5_ACTIVE_DRAFT_KEY) || '' } catch { return '' } }
 const setActiveDraftKey = (draftKey) => { try { sessionStorage.setItem(MQA5_ACTIVE_DRAFT_KEY, draftKey) } catch (error) { console.warn('Cannot set active MQA5 draft key:', error) } }
+const getResponseObject = (data) => { if (Array.isArray(data)) return data[0] || null; if (data?.data && typeof data.data === 'object' && !Array.isArray(data.data)) return data.data; if (data?.item && typeof data.item === 'object') return data.item; if (data?.result && typeof data.result === 'object') return data.result; return data }
+const getResponseList = (data, keyList = []) => { if (Array.isArray(data)) return data; if (Array.isArray(data?.data)) return data.data; if (Array.isArray(data?.items)) return data.items; if (Array.isArray(data?.results)) return data.results; for (const key of keyList) { const value = key.split('.').reduce((current, part) => current?.[part], data); if (Array.isArray(value)) return value } return [] }
+const getErrorMessage = (error, fallbackMessage) => { const detail = error?.response?.data?.detail; const message = error?.response?.data?.message; if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message || JSON.stringify(item)).join(', '); return detail || message || fallbackMessage }
+const pickFirstText = (...values) => values.map((value) => normalizeText(value)).find(Boolean) || ''
+const isNumericId = (value) => /^\d+$/.test(normalizeText(value))
 
 const getMqa5DraftKey = (state = {}) => {
   const courseItem = state?.courseItem || {}
-  const keySource = state?.mqa5DraftKey || state?.tqf5Id || state?.mqa5Id || state?.selectedDocumentId || state?.openingCourseItemId || state?.requestedCourseItemId || state?.courseId || state?.courseCode || courseItem?.tqf5Id || courseItem?.mqa5Id || courseItem?.openingCourseItemId || courseItem?.requestedCourseItemId || courseItem?.courseId || courseItem?.courseCode || ''
+  const keySource = state?.mqa5DraftKey || state?.tqf5Id || state?.tqf5_id || state?.mqa5Id || state?.mqa5_id || state?.selectedDocumentId || state?.documentId || state?.document_id || state?.openingCourseItemId || state?.requestedCourseItemId || state?.courseId || state?.courseCode || courseItem?.tqf5Id || courseItem?.tqf5_id || courseItem?.mqa5Id || courseItem?.mqa5_id || courseItem?.openingCourseItemId || courseItem?.requestedCourseItemId || courseItem?.courseId || courseItem?.courseCode || ''
   if (keySource) return String(keySource).startsWith('mqa5Draft:') ? String(keySource) : `mqa5Draft:${keySource}`
   return getActiveDraftKey() || 'mqa5Draft:new'
 }
@@ -35,13 +45,93 @@ const writeMqa5Draft = (draftKey, nextDraft) => {
   return mergedDraft
 }
 
-const getTqf3ReferenceId = (state = {}, savedDraft = {}) => normalizeText(state?.referenceTqf3Id || state?.sourceTqf3Id || state?.tqf3Id || state?.mqa3Id || state?.courseItem?.referenceTqf3Id || state?.courseItem?.sourceTqf3Id || state?.courseItem?.tqf3Id || state?.courseItem?.mqa3Id || savedDraft?.referenceTqf3Id || savedDraft?.sourceTqf3Id || savedDraft?.tqf3Id || savedDraft?.mqa3Id || '')
-const getTqf5DocumentId = (state = {}, savedDraft = {}) => normalizeText(state?.tqf5Id || state?.mqa5Id || state?.selectedDocumentId || state?.courseItem?.tqf5Id || state?.courseItem?.mqa5Id || savedDraft?.tqf5Id || savedDraft?.mqa5Id || '')
+const getTqf3ReferenceId = (state = {}, savedDraft = {}) => normalizeText(state?.referenceTqf3Id || state?.reference_tqf3_id || state?.sourceTqf3Id || state?.source_tqf3_id || state?.tqf3Id || state?.tqf3_id || state?.mqa3Id || state?.mqa3_id || state?.courseItem?.referenceTqf3Id || state?.courseItem?.reference_tqf3_id || state?.courseItem?.sourceTqf3Id || state?.courseItem?.source_tqf3_id || state?.courseItem?.tqf3Id || state?.courseItem?.tqf3_id || state?.courseItem?.mqa3Id || state?.courseItem?.mqa3_id || savedDraft?.referenceTqf3Id || savedDraft?.reference_tqf3_id || savedDraft?.sourceTqf3Id || savedDraft?.source_tqf3_id || savedDraft?.tqf3Id || savedDraft?.tqf3_id || savedDraft?.mqa3Id || savedDraft?.mqa3_id || savedDraft?.navigationState?.referenceTqf3Id || savedDraft?.navigationState?.sourceTqf3Id || savedDraft?.navigationState?.tqf3Id || savedDraft?.navigationState?.mqa3Id || '')
+const getTqf5DocumentId = (state = {}, savedDraft = {}) => normalizeText(state?.tqf5Id || state?.tqf5_id || state?.mqa5Id || state?.mqa5_id || state?.selectedDocumentId || state?.documentId || state?.document_id || state?.courseItem?.tqf5Id || state?.courseItem?.tqf5_id || state?.courseItem?.mqa5Id || state?.courseItem?.mqa5_id || savedDraft?.tqf5Id || savedDraft?.tqf5_id || savedDraft?.mqa5Id || savedDraft?.mqa5_id || savedDraft?.navigationState?.tqf5Id || savedDraft?.navigationState?.mqa5Id || '')
+
 const normalizeRows142 = (rows = []) => Array.isArray(rows) && rows.length ? rows.map((row) => ({ ...defaultRow142, ...row })) : [{ ...defaultRow142 }]
+const hasUsefulSec13Data = (sec13 = {}) => hasText(sec13?.issue131) || hasText(sec13?.impact131) || hasText(sec13?.issue132) || hasText(sec13?.impact132)
+const hasUsefulSec141Data = (sec141 = {}) => hasText(sec141?.critique) || hasText(sec141?.teacherComment)
+const hasUsefulRows142Data = (rows = []) => Array.isArray(rows) && rows.some((row) => hasText(row?.critique) || hasText(row?.teacherComment))
+
+const getDocumentDataFromTqf5 = (tqf5Data = {}) => {
+  const documentData = tqf5Data?.documentData || tqf5Data?.document_data || tqf5Data?.document || tqf5Data?.data?.documentData || {}
+  return documentData && typeof documentData === 'object' && !Array.isArray(documentData) ? documentData : {}
+}
+
+const getSectionFromTqf5 = (tqf5Data = {}, sectionName = '') => {
+  const documentData = getDocumentDataFromTqf5(tqf5Data)
+  const section = documentData?.[sectionName] || tqf5Data?.[sectionName] || {}
+  return section && typeof section === 'object' && !Array.isArray(section) ? section : {}
+}
+
+const getIssueRowsByType = (tqf5Data = {}, issueType = '') => {
+  const normalizedIssueType = normalizeText(issueType).toLowerCase()
+  return getResponseList(tqf5Data?.issues ?? tqf5Data?.issue_list ?? tqf5Data?.issueList, ['issues', 'issue_list', 'issueList']).filter((item) => normalizeText(item?.issue_type || item?.issueType || item?.type).toLowerCase() === normalizedIssueType)
+}
+
+const getFeedbackRowsByType = (tqf5Data = {}, feedbackType = '') => {
+  const normalizedFeedbackType = normalizeText(feedbackType).toLowerCase()
+  return getResponseList(tqf5Data?.feedbacks ?? tqf5Data?.feedback_list ?? tqf5Data?.feedbackList, ['feedbacks', 'feedback_list', 'feedbackList']).filter((item) => normalizeText(item?.feedback_type || item?.feedbackType || item?.type).toLowerCase() === normalizedFeedbackType)
+}
+
+const mapIssueToSec13Part = (issue = {}) => ({
+  issue: pickFirstText(issue?.issue, issue?.problem, issue?.problem_text, issue?.problemText, issue?.detail),
+  impact: pickFirstText(issue?.impact, issue?.effect, issue?.learning_impact, issue?.learningImpact, issue?.result),
+})
+
+const mapFeedbackToRow = (feedback = {}) => ({
+  critique: pickFirstText(feedback?.critique, feedback?.criticism, feedback?.comment, feedback?.feedback, feedback?.suggestion, feedback?.detail),
+  teacherComment: pickFirstText(feedback?.teacherComment, feedback?.teacher_comment, feedback?.response, feedback?.teacher_response, feedback?.teacherResponse, feedback?.comment_response),
+})
+
+const mapTqf5DetailToPage3Data = (tqf5Data = {}) => {
+  const section13 = getSectionFromTqf5(tqf5Data, 'section13')
+  const section14 = getSectionFromTqf5(tqf5Data, 'section14')
+
+  const resourceIssueList = getResponseList(section13?.resourceIssues ?? section13?.resource_issues ?? section13?.resources, ['resourceIssues', 'resource_issues', 'resources'])
+  const adminIssueList = getResponseList(section13?.adminIssues ?? section13?.admin_issues ?? section13?.administrationIssues, ['adminIssues', 'admin_issues', 'administrationIssues'])
+  const resourceIssue = mapIssueToSec13Part(resourceIssueList[0] || getIssueRowsByType(tqf5Data, 'resource')[0] || {})
+  const adminIssue = mapIssueToSec13Part(adminIssueList[0] || getIssueRowsByType(tqf5Data, 'admin')[0] || {})
+
+  const sec13 = {
+    issue131: resourceIssue.issue,
+    impact131: resourceIssue.impact,
+    issue132: adminIssue.issue,
+    impact132: adminIssue.impact,
+  }
+
+  const systemFeedbackList = getResponseList(section14?.systemFeedback ?? section14?.system_feedback ?? section14?.studentSystemFeedback, ['systemFeedback', 'system_feedback', 'studentSystemFeedback'])
+  const otherFeedbackList = getResponseList(section14?.otherFeedback ?? section14?.other_feedback ?? section14?.otherFeedbacks, ['otherFeedback', 'other_feedback', 'otherFeedbacks'])
+
+  const sec141 = { ...defaultSec141, ...mapFeedbackToRow(systemFeedbackList[0] || getFeedbackRowsByType(tqf5Data, 'system')[0] || {}) }
+
+  const feedback142Source = otherFeedbackList.length ? otherFeedbackList : getFeedbackRowsByType(tqf5Data, 'other')
+  const rows142 = feedback142Source.map((feedback) => mapFeedbackToRow(feedback)).filter((row) => hasText(row.critique) || hasText(row.teacherComment))
+
+  return {
+    sec13,
+    sec141,
+    rows142: rows142.length ? normalizeRows142(rows142) : [{ ...defaultRow142 }],
+  }
+}
+
+const fetchTqf5Detail = async (apiUrl, tqf5Id) => {
+  let lastError = null
+  for (const endpoint of TQF5_DETAIL_ENDPOINTS) {
+    try {
+      const response = await axios.get(getApiUrl(apiUrl, `${endpoint}/${tqf5Id}`), getAuthConfig())
+      return getResponseObject(response.data) || {}
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError
+}
 
 function Mqa5Insert3Page() {
   const navigate = useNavigate()
   const location = useLocation()
+  const apiUrl = import.meta.env.VITE_API_URL
   const locationState = useMemo(() => location.state || {}, [location.state])
   const draftKey = useMemo(() => getMqa5DraftKey(locationState), [locationState])
   const savedDraft = useMemo(() => safeReadJson(draftKey), [draftKey])
@@ -49,10 +139,15 @@ function Mqa5Insert3Page() {
   const tqf3ReferenceId = useMemo(() => getTqf3ReferenceId(navigationState, savedDraft), [navigationState, savedDraft])
   const tqf5DocumentId = useMemo(() => getTqf5DocumentId(navigationState, savedDraft), [navigationState, savedDraft])
   const savedPageData = savedDraft?.mqa5Insert3 || navigationState?.mqa5Insert3 || null
+  const hydrationKey = `${tqf5DocumentId || 'new'}:${tqf3ReferenceId || 'no-tqf3'}`
+  const loadedHydrationKeyRef = useRef('')
 
   const [sec13, setSec13] = useState(() => ({ ...defaultSec13, ...(savedPageData?.sec13 || {}) }))
   const [sec141, setSec141] = useState(() => ({ ...defaultSec141, ...(savedPageData?.sec141 || {}) }))
   const [rows142, setRows142] = useState(() => normalizeRows142(savedPageData?.rows142))
+  const [isLoadingExistingData, setIsLoadingExistingData] = useState(false)
+  const [loadErrorMessage, setLoadErrorMessage] = useState('')
+  const [hasHydratedInitialData, setHasHydratedInitialData] = useState(false)
   const [popup, setPopup] = useState({ open: false, title: '', value: '', mode: '', field: '', rowIndex: null, rowField: '' })
 
   const isPageComplete = useMemo(() => {
@@ -65,9 +160,61 @@ function Mqa5Insert3Page() {
   const buildNextState = () => ({ ...navigationState, mqa5DraftKey: draftKey, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert3: { sec13, sec141, rows142 } })
 
   useEffect(() => {
+    if (!apiUrl) return
+    if (loadedHydrationKeyRef.current === hydrationKey) return
+
+    let isMounted = true
+
+    const hydratePageData = async () => {
+      let nextSec13 = { ...defaultSec13, ...(savedPageData?.sec13 || {}) }
+      let nextSec141 = { ...defaultSec141, ...(savedPageData?.sec141 || {}) }
+      let nextRows142 = normalizeRows142(savedPageData?.rows142)
+
+      setLoadErrorMessage('')
+
+      if (tqf5DocumentId && isNumericId(tqf5DocumentId)) {
+        try {
+          setIsLoadingExistingData(true)
+          const tqf5Data = await fetchTqf5Detail(apiUrl, tqf5DocumentId)
+          if (!isMounted) return
+
+          const mappedPage3 = mapTqf5DetailToPage3Data(tqf5Data)
+          if (hasUsefulSec13Data(mappedPage3.sec13)) nextSec13 = { ...defaultSec13, ...mappedPage3.sec13 }
+          if (hasUsefulSec141Data(mappedPage3.sec141)) nextSec141 = { ...defaultSec141, ...mappedPage3.sec141 }
+          if (hasUsefulRows142Data(mappedPage3.rows142)) nextRows142 = mappedPage3.rows142
+        } catch (error) {
+          if (!isMounted) return
+          console.warn('Cannot fetch existing MQA5 page 3 data:', error)
+          setLoadErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงข้อมูลเดิมของ มคอ.5 หน้า 3 ได้ ระบบจะแสดงข้อมูลจากแบบร่างในเครื่องแทน'))
+        } finally {
+          if (isMounted) setIsLoadingExistingData(false)
+        }
+      } else if (tqf5DocumentId && !isNumericId(tqf5DocumentId)) {
+        setLoadErrorMessage('รหัสเอกสาร มคอ.5 ไม่ถูกต้อง กรุณากลับไปเปิดจากหน้ารายการเอกสารใหม่อีกครั้ง')
+      }
+
+      if (!isMounted) return
+
+      loadedHydrationKeyRef.current = hydrationKey
+      setSec13(nextSec13)
+      setSec141(nextSec141)
+      setRows142(nextRows142)
+      setHasHydratedInitialData(true)
+
+      const nextState = { ...navigationState, mqa5DraftKey: draftKey, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert3: { sec13: nextSec13, sec141: nextSec141, rows142: nextRows142 } }
+      writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert3: { sec13: nextSec13, sec141: nextSec141, rows142: nextRows142 } })
+    }
+
+    hydratePageData()
+
+    return () => { isMounted = false }
+  }, [apiUrl, hydrationKey])
+
+  useEffect(() => {
+    if (!hasHydratedInitialData) return
     const nextState = buildNextState()
     writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, mqa5Insert3: { sec13, sec141, rows142 } })
-  }, [draftKey, navigationState, rows142, sec13, sec141, tqf3ReferenceId, tqf5DocumentId])
+  }, [draftKey, hasHydratedInitialData, navigationState, rows142, sec13, sec141, tqf3ReferenceId, tqf5DocumentId])
 
   const openPopupForSec13 = (field, title) => setPopup({ open: true, title, value: sec13[field] || '', mode: 'sec13', field, rowIndex: null, rowField: '' })
   const openPopupForSec141 = (field, title) => setPopup({ open: true, title, value: sec141[field] || '', mode: 'sec141', field, rowIndex: null, rowField: '' })
@@ -99,7 +246,7 @@ function Mqa5Insert3Page() {
   }
 
   const handleNext = () => {
-    if (!isPageComplete) return
+    if (!isPageComplete || isLoadingExistingData) return
     const nextState = buildNextState()
     writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, mqa5Insert3: { sec13, sec141, rows142 } })
     navigate('/mqa5Insert-4', { state: nextState })
@@ -122,6 +269,19 @@ function Mqa5Insert3Page() {
               <Typography className={styles.pageStatusValue}>{isPageComplete ? 'ครบแล้ว' : 'ยังไม่ครบ'}</Typography>
             </Box>
           </Box>
+
+          {isLoadingExistingData && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+              <CircularProgress size={22} />
+              <Typography color="text.secondary">กำลังดึงข้อมูลเดิมจาก มคอ.5...</Typography>
+            </Box>
+          )}
+
+          {loadErrorMessage && (
+            <Box sx={{ mb: 2, p: 2, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.18)' }}>
+              <Typography color="error" fontWeight={700}>{loadErrorMessage}</Typography>
+            </Box>
+          )}
 
           <Box className={styles.contentFlow}>
             <Box className={styles.sectionBlock}><Typography className={styles.sectionTitle}>13. ปัญหาและผลกระทบต่อการดำเนินการ</Typography></Box>
@@ -180,7 +340,7 @@ function Mqa5Insert3Page() {
 
           <Box className={styles.actionBar}>
             <Button variant="outlined" startIcon={<NavigateBeforeIcon />} className={styles.backButton} onClick={handleBack}>ย้อนกลับ</Button>
-            <Button variant="contained" endIcon={<NavigateNextIcon />} className={styles.nextButton} onClick={handleNext} disabled={!isPageComplete}>ถัดไป</Button>
+            <Button variant="contained" endIcon={<NavigateNextIcon />} className={styles.nextButton} onClick={handleNext} disabled={!isPageComplete || isLoadingExistingData}>ถัดไป</Button>
           </Box>
         </Box>
       </Box>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
@@ -44,7 +44,7 @@ const getResponseList = (data, keyList = []) => { if (Array.isArray(data)) retur
 const getErrorMessage = (error, fallbackMessage) => { const detail = error?.response?.data?.detail; const message = error?.response?.data?.message; if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message || JSON.stringify(item)).join(', '); return detail || message || fallbackMessage }
 
 const getTqf3ReferenceId = (state = {}, savedDraft = {}) => normalizeText(state?.referenceTqf3Id || state?.sourceTqf3Id || state?.tqf3Id || state?.mqa3Id || state?.courseItem?.referenceTqf3Id || state?.courseItem?.sourceTqf3Id || state?.courseItem?.tqf3Id || state?.courseItem?.mqa3Id || savedDraft?.referenceTqf3Id || savedDraft?.sourceTqf3Id || savedDraft?.tqf3Id || savedDraft?.mqa3Id || '')
-const getTqf5DocumentId = (state = {}, savedDraft = {}) => normalizeText(state?.tqf5Id || state?.mqa5Id || state?.selectedDocumentId || state?.courseItem?.tqf5Id || state?.courseItem?.mqa5Id || savedDraft?.tqf5Id || savedDraft?.mqa5Id || '')
+const getTqf5DocumentId = (state = {}, savedDraft = {}) => { const idText = normalizeText(state?.tqf5Id || state?.tqf5_id || state?.mqa5Id || state?.mqa5_id || state?.selectedDocumentId || state?.documentId || state?.courseItem?.tqf5Id || state?.courseItem?.tqf5_id || state?.courseItem?.mqa5Id || state?.courseItem?.mqa5_id || savedDraft?.tqf5Id || savedDraft?.tqf5_id || savedDraft?.mqa5Id || savedDraft?.mqa5_id || savedDraft?.navigationState?.tqf5Id || savedDraft?.navigationState?.tqf5_id || savedDraft?.navigationState?.mqa5Id || savedDraft?.navigationState?.mqa5_id || ''); return /^\d+$/.test(idText) ? idText : '' }
 const getRequestedCourseItemId = (state = {}, savedDraft = {}) => normalizeText(state?.requestedCourseItemId || state?.openingCourseItemId || state?.requested_course_item_id || state?.opening_course_item_id || state?.courseItem?.requestedCourseItemId || state?.courseItem?.requested_course_item_id || state?.courseItem?.openingCourseItemId || state?.courseItem?.opening_course_item_id || state?.courseItem?.rawData?.requested_course_item_id || state?.courseItem?.rawData?.requestedCourseItemId || state?.courseItem?.rawData?.opening_course_item_id || state?.courseItem?.rawData?.openingCourseItemId || state?.courseItem?.rawData?.id || savedDraft?.requestedCourseItemId || savedDraft?.openingCourseItemId || '')
 const getCourseOpeningRequestId = (state = {}, savedDraft = {}) => {
   const courseItem = state?.courseItem || {}
@@ -136,6 +136,113 @@ const normalizeSignerList = (signers = [], fallbackCreator = createCourseSigner)
 const normalizeRows154 = (rows = []) => Array.isArray(rows) && rows.length ? rows.map((row) => ({ ...defaultRow154, ...row })) : [{ ...defaultRow154 }]
 const normalizeStringList = (items = []) => Array.isArray(items) && items.length ? items : ['']
 const hasFilledSignerList = (signers = []) => Array.isArray(signers) && signers.some((signer) => hasText(signer?.name) || hasText(signer?.signature) || hasText(signer?.date))
+
+const normalizeDateInputValue = (value) => {
+  const text = normalizeText(value)
+  if (!text) return ''
+  return text.length >= 10 ? text.slice(0, 10) : text
+}
+
+const normalizeResult151Value = (value) => {
+  const text = normalizeText(value).toLowerCase()
+  if (!text) return ''
+  if (['done', 'ปรับปรุงแล้ว', 'completed', 'complete'].includes(text)) return 'done'
+  if (['no', 'ไม่ได้ปรับปรุง', 'notdone', 'not_done'].includes(text)) return 'no'
+  if (['partial', 'ปรับปรุงแต่ไม่เสร็จสมบูรณ์', 'partly', 'incomplete'].includes(text)) return 'partial'
+  return normalizeText(value)
+}
+
+const getDocumentDataFromTqf5 = (tqf5Data = {}) => {
+  const documentData = tqf5Data?.documentData || tqf5Data?.document_data || tqf5Data?.document || tqf5Data?.data?.documentData || {}
+  return documentData && typeof documentData === 'object' && !Array.isArray(documentData) ? documentData : {}
+}
+
+const getSectionFromTqf5 = (tqf5Data = {}, sectionName = '') => {
+  const documentData = getDocumentDataFromTqf5(tqf5Data)
+  const section = documentData?.[sectionName] || tqf5Data?.[sectionName] || {}
+  return section && typeof section === 'object' && !Array.isArray(section) ? section : {}
+}
+
+const mapPastPlanRowsFromTqf5 = (tqf5Data = {}) => {
+  const section15 = getSectionFromTqf5(tqf5Data, 'section15')
+  const documentRows = getResponseList(section15?.pastPlans || section15?.past_plans || section15?.plans, ['pastPlans', 'past_plans', 'plans'])
+  const relationRows = getResponseList(tqf5Data?.past_plans || tqf5Data?.pastPlans, ['past_plans', 'pastPlans'])
+  return [...documentRows, ...relationRows].map((row) => ({ plan: normalizeText(row?.plan), result: normalizeResult151Value(row?.result) })).filter((row) => hasText(row.plan) || hasText(row.result))
+}
+
+const mapOtherActionItemsFromTqf5 = (tqf5Data = {}) => {
+  const section15 = getSectionFromTqf5(tqf5Data, 'section15')
+  const documentItems = getResponseList(section15?.otherActions || section15?.other_actions || section15?.actions, ['otherActions', 'other_actions', 'actions']).map((item) => typeof item === 'string' ? normalizeText(item) : normalizeText(item?.detail || item?.text || item?.item))
+  const relationItems = getResponseList(tqf5Data?.list_items || tqf5Data?.listItems, ['list_items', 'listItems']).filter((item) => normalizeText(item?.item_type || item?.itemType) === 'other_action').map((item) => normalizeText(item?.detail || item?.text || item?.item))
+  const mergedItems = uniqueNameList([...documentItems, ...relationItems])
+  return mergedItems.length ? mergedItems : ['']
+}
+
+const mapRecommendationItemsFromTqf5 = (tqf5Data = {}) => {
+  const section15 = getSectionFromTqf5(tqf5Data, 'section15')
+  const documentItems = getResponseList(section15?.recommendations || section15?.suggestions, ['recommendations', 'suggestions']).map((item) => typeof item === 'string' ? normalizeText(item) : normalizeText(item?.detail || item?.text || item?.item))
+  const relationItems = getResponseList(tqf5Data?.list_items || tqf5Data?.listItems, ['list_items', 'listItems']).filter((item) => normalizeText(item?.item_type || item?.itemType) === 'recommendation').map((item) => normalizeText(item?.detail || item?.text || item?.item))
+  const mergedItems = uniqueNameList([...documentItems, ...relationItems])
+  return mergedItems.length ? mergedItems : ['']
+}
+
+const mapNextPlanRowsFromTqf5 = (tqf5Data = {}) => {
+  const section15 = getSectionFromTqf5(tqf5Data, 'section15')
+  const documentRows = getResponseList(section15?.nextPlans || section15?.next_plans || section15?.improvementPlans, ['nextPlans', 'next_plans', 'improvementPlans'])
+  const relationRows = getResponseList(tqf5Data?.next_plans || tqf5Data?.nextPlans, ['next_plans', 'nextPlans'])
+  const mappedRows = [...documentRows, ...relationRows].map((row) => ({ suggestion: normalizeText(row?.suggestion || row?.plan), due: normalizeText(row?.due || row?.deadline), owner: normalizeText(row?.owner || row?.responsible || row?.responsible_person) })).filter((row) => hasText(row.suggestion) || hasText(row.due) || hasText(row.owner))
+  return mappedRows.length ? normalizeRows154(mappedRows) : [{ ...defaultRow154 }]
+}
+
+const mapIntegrationItemsFromTqf5 = (tqf5Data = {}) => {
+  const section16 = getSectionFromTqf5(tqf5Data, 'section16')
+  const documentItems = getResponseList(section16?.integrations || section16?.integrationItems || section16?.items, ['integrations', 'integrationItems', 'items']).map((item) => typeof item === 'string' ? normalizeText(item) : normalizeText(item?.detail || item?.text || item?.item))
+  const relationItems = getResponseList(tqf5Data?.list_items || tqf5Data?.listItems, ['list_items', 'listItems']).filter((item) => normalizeText(item?.item_type || item?.itemType) === 'integration').map((item) => normalizeText(item?.detail || item?.text || item?.item))
+  const mergedItems = uniqueNameList([...documentItems, ...relationItems])
+  return mergedItems.length ? mergedItems : ['']
+}
+
+const normalizeSignerFromTqf5 = (signer = {}) => ({
+  name: normalizeText(signer?.name),
+  signature: normalizeText(signer?.signature || signer?.signed_name || signer?.signedName || signer?.name),
+  date: normalizeDateInputValue(signer?.date || signer?.signed_date || signer?.signedDate)
+})
+
+const mapSignerRowsFromTqf5 = (tqf5Data = {}, signerType = 'subject') => {
+  const section16 = getSectionFromTqf5(tqf5Data, 'section16')
+  const documentRows = signerType === 'subject'
+    ? getResponseList(section16?.subjectTeachers || section16?.subject_teachers || section16?.courseSigners || section16?.course_signers, ['subjectTeachers', 'subject_teachers', 'courseSigners', 'course_signers'])
+    : getResponseList(section16?.curriculumTeachers || section16?.curriculum_teachers || section16?.programSigners || section16?.program_signers, ['curriculumTeachers', 'curriculum_teachers', 'programSigners', 'program_signers'])
+  const relationRows = getResponseList(tqf5Data?.signers, ['signers']).filter((signer) => normalizeText(signer?.signer_type || signer?.signerType) === signerType)
+  const mappedRows = [...documentRows, ...relationRows].map(normalizeSignerFromTqf5).filter((signer) => hasText(signer.name) || hasText(signer.signature) || hasText(signer.date))
+  const uniqueRows = []
+  mappedRows.forEach((signer) => {
+    const key = `${signer.name}|${signer.signature}|${signer.date}`
+    if (!uniqueRows.some((item) => `${item.name}|${item.signature}|${item.date}` === key)) uniqueRows.push(signer)
+  })
+  return uniqueRows
+}
+
+const mapTqf5DetailToPage4Data = (tqf5Data = {}) => {
+  const pastPlans = mapPastPlanRowsFromTqf5(tqf5Data)
+  const courseSignersFromDb = mapSignerRowsFromTqf5(tqf5Data, 'subject')
+  const programSignersFromDb = mapSignerRowsFromTqf5(tqf5Data, 'curriculum')
+  return {
+    plan151: pastPlans[0]?.plan || '',
+    result151: pastPlans[0]?.result || '',
+    items152: mapOtherActionItemsFromTqf5(tqf5Data),
+    items153: mapRecommendationItemsFromTqf5(tqf5Data),
+    rows154: mapNextPlanRowsFromTqf5(tqf5Data),
+    items16: mapIntegrationItemsFromTqf5(tqf5Data),
+    courseSigners: courseSignersFromDb.length ? normalizeSignerList(courseSignersFromDb, createCourseSigner) : [createCourseSigner()],
+    programSigners: programSignersFromDb.length ? normalizeSignerList(programSignersFromDb, createProgramSigner) : [createProgramSigner()],
+  }
+}
+
+const fetchTqf5Detail = async (apiUrl, tqf5Id) => {
+  const response = await axios.get(getApiUrl(apiUrl, `/tqf5/${tqf5Id}`), getAuthConfig())
+  return getResponseObject(response.data) || {}
+}
 
 const hasObjectData = (value) => Boolean(value && typeof value === 'object' && Object.keys(value).length > 0)
 const toNumberOrNull = (value) => { const text = normalizeText(value); if (!text) return null; const numberValue = Number(text); return Number.isFinite(numberValue) ? numberValue : null }
@@ -317,6 +424,7 @@ function Mqa5Insert4Page() {
   const navigationState = useMemo(() => Object.keys(locationState).length ? locationState : savedDraft?.navigationState || {}, [locationState, savedDraft])
   const tqf3ReferenceId = useMemo(() => getTqf3ReferenceId(navigationState, savedDraft), [navigationState, savedDraft])
   const tqf5DocumentId = useMemo(() => getTqf5DocumentId(navigationState, savedDraft), [navigationState, savedDraft])
+  const editTqf5DocumentId = useMemo(() => normalizePathId(tqf5DocumentId), [tqf5DocumentId])
   const requestedCourseItemId = useMemo(() => getRequestedCourseItemId(navigationState, savedDraft), [navigationState, savedDraft])
   const courseOpeningRequestId = useMemo(() => getCourseOpeningRequestId(navigationState, savedDraft), [navigationState, savedDraft])
   const savedPageData = savedDraft?.mqa5Insert4 || navigationState?.mqa5Insert4 || null
@@ -335,10 +443,59 @@ function Mqa5Insert4Page() {
   const [isLoadingProgramSigners, setIsLoadingProgramSigners] = useState(false)
   const [courseSignerMessage, setCourseSignerMessage] = useState('')
   const [programSignerMessage, setProgramSignerMessage] = useState('')
+  const [isLoadingExistingDocument, setIsLoadingExistingDocument] = useState(false)
+  const [existingDocumentMessage, setExistingDocumentMessage] = useState('')
+  const [hasHydratedExistingDocument, setHasHydratedExistingDocument] = useState(!editTqf5DocumentId)
+  const loadedExistingTqf5Ref = useRef('')
   const [isSaving, setIsSaving] = useState(false)
   const [popup, setPopup] = useState({ open: false, title: '', value: '', mode: '', itemIndex: null, rowIndex: null, rowField: '', field: '' })
 
   useEffect(() => {
+    if (!editTqf5DocumentId) { setHasHydratedExistingDocument(true); return }
+    if (!apiUrl) return
+    if (loadedExistingTqf5Ref.current === editTqf5DocumentId) return
+
+    let isMounted = true
+
+    const hydrateExistingDocument = async () => {
+      try {
+        setIsLoadingExistingDocument(true)
+        setExistingDocumentMessage('กำลังดึงข้อมูลเดิมของเอกสาร มคอ.5 จากฐานข้อมูล...')
+        const tqf5Data = await fetchTqf5Detail(apiUrl, editTqf5DocumentId)
+        if (!isMounted) return
+
+        const mappedPage4 = mapTqf5DetailToPage4Data(tqf5Data)
+        loadedExistingTqf5Ref.current = editTqf5DocumentId
+        setPlan151(mappedPage4.plan151)
+        setResult151(mappedPage4.result151)
+        setItems152(mappedPage4.items152)
+        setItems153(mappedPage4.items153)
+        setRows154(mappedPage4.rows154)
+        setItems16(mappedPage4.items16)
+        setCourseSigners(mappedPage4.courseSigners)
+        setProgramSigners(mappedPage4.programSigners)
+        setHasHydratedExistingDocument(true)
+        setExistingDocumentMessage('ดึงข้อมูลเดิมจากฐานข้อมูลเรียบร้อยแล้ว')
+
+        const nextState = { ...navigationState, mqa5DraftKey: draftKey, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: editTqf5DocumentId, mqa5Id: editTqf5DocumentId, requestedCourseItemId, openingCourseItemId: requestedCourseItemId || navigationState?.openingCourseItemId, courseOpeningRequestId, mqa5Insert4: mappedPage4 }
+        writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: editTqf5DocumentId, mqa5Id: editTqf5DocumentId, requestedCourseItemId, openingCourseItemId: requestedCourseItemId || navigationState?.openingCourseItemId, courseOpeningRequestId, mqa5Insert4: mappedPage4 })
+      } catch (error) {
+        if (!isMounted) return
+        console.error('Error fetching existing TQF5 page 4 data:', error)
+        setHasHydratedExistingDocument(true)
+        setExistingDocumentMessage(getErrorMessage(error, 'ไม่สามารถดึงข้อมูลเดิมของหัวข้อ 15 - 16 ได้ ระบบจะแสดงข้อมูลจากแบบร่างในเครื่องแทน'))
+      } finally {
+        if (isMounted) setIsLoadingExistingDocument(false)
+      }
+    }
+
+    hydrateExistingDocument()
+
+    return () => { isMounted = false }
+  }, [apiUrl, courseOpeningRequestId, draftKey, editTqf5DocumentId, navigationState, requestedCourseItemId, tqf3ReferenceId])
+
+  useEffect(() => {
+    if (editTqf5DocumentId) return
     if (savedPageData?.courseSigners?.length && hasFilledSignerList(savedPageData.courseSigners)) return
     if (!requestedCourseItemId) return
     let isMounted = true
@@ -364,9 +521,10 @@ function Mqa5Insert4Page() {
     }
     fetchCourseAssignmentSigners()
     return () => { isMounted = false }
-  }, [apiUrl, navigationState, requestedCourseItemId, savedPageData?.courseSigners])
+  }, [apiUrl, editTqf5DocumentId, navigationState, requestedCourseItemId, savedPageData?.courseSigners])
 
   useEffect(() => {
+    if (editTqf5DocumentId) return
     if (savedPageData?.programSigners?.length && hasFilledSignerList(savedPageData.programSigners)) return
     let isMounted = true
     const fetchProgramSigners = async () => {
@@ -416,7 +574,7 @@ function Mqa5Insert4Page() {
     }
     fetchProgramSigners()
     return () => { isMounted = false }
-  }, [apiUrl, courseOpeningRequestId, navigationState, requestedCourseItemId, savedPageData?.programSigners])
+  }, [apiUrl, courseOpeningRequestId, editTqf5DocumentId, navigationState, requestedCourseItemId, savedPageData?.programSigners])
 
   const isPageComplete = useMemo(() => {
     const planComplete = hasText(plan151) && hasText(result151)
@@ -430,9 +588,10 @@ function Mqa5Insert4Page() {
   const buildNextState = () => ({ ...navigationState, mqa5DraftKey: draftKey, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, requestedCourseItemId, openingCourseItemId: requestedCourseItemId || navigationState?.openingCourseItemId, courseOpeningRequestId, mqa5Insert4: { plan151, result151, items152, items153, rows154, items16, courseSigners, programSigners } })
 
   useEffect(() => {
+    if (editTqf5DocumentId && !hasHydratedExistingDocument) return
     const nextState = buildNextState()
     writeMqa5Draft(draftKey, { draftKey, navigationState: nextState, referenceTqf3Id: tqf3ReferenceId, sourceTqf3Id: tqf3ReferenceId, tqf3Id: tqf3ReferenceId, mqa3Id: tqf3ReferenceId, tqf5Id: tqf5DocumentId, mqa5Id: tqf5DocumentId, requestedCourseItemId, openingCourseItemId: requestedCourseItemId || navigationState?.openingCourseItemId, courseOpeningRequestId, mqa5Insert4: { plan151, result151, items152, items153, rows154, items16, courseSigners, programSigners } })
-  }, [courseOpeningRequestId, courseSigners, draftKey, items152, items153, items16, navigationState, plan151, programSigners, requestedCourseItemId, result151, rows154, tqf3ReferenceId, tqf5DocumentId])
+  }, [courseOpeningRequestId, courseSigners, draftKey, editTqf5DocumentId, hasHydratedExistingDocument, items152, items153, items16, navigationState, plan151, programSigners, requestedCourseItemId, result151, rows154, tqf3ReferenceId, tqf5DocumentId])
 
   const openPopupForSimple = (field, title, value) => setPopup({ open: true, title, value: value || '', mode: field, itemIndex: null, rowIndex: null, rowField: '', field })
   const openPopupForList = (mode, itemIndex, title, value) => setPopup({ open: true, title, value: value || '', mode, itemIndex, rowIndex: null, rowField: '', field: '' })
@@ -474,7 +633,7 @@ function Mqa5Insert4Page() {
     if (!payload.course_id) { window.alert('ไม่พบรหัสรายวิชา ไม่สามารถบันทึกเอกสาร มคอ.5 ได้ กรุณากลับไปเลือกเอกสารจากหน้ารายวิชาที่ได้รับมอบหมายใหม่'); return }
     try {
       setIsSaving(true)
-      let targetTqf5Id = getExistingTqf5IdFromSource(latestDraft.navigationState || nextState, latestDraft)
+      let targetTqf5Id = editTqf5DocumentId || getExistingTqf5IdFromSource(latestDraft.navigationState || nextState, latestDraft)
       let existingDocument = null
       if (!targetTqf5Id) { existingDocument = await findExistingTqf5Document(apiUrl, payload); targetTqf5Id = normalizePathId(existingDocument?.id) }
       if (existingDocument && existingDocument.status !== 'draft') { window.alert('เอกสาร มคอ.5 นี้ถูกส่งเข้าระบบแล้ว ไม่สามารถบันทึกทับแบบร่างได้'); return }
@@ -534,6 +693,18 @@ function Mqa5Insert4Page() {
               <Typography className={styles.pageStatusValue}>{isPageComplete ? 'ครบแล้ว' : 'ยังไม่ครบ'}</Typography>
             </Box>
           </Box>
+
+          {isLoadingExistingDocument && (
+            <Box sx={{ mb: 2, p: 2, borderRadius: 2, bgcolor: 'rgba(37, 99, 235, 0.08)', border: '1px solid rgba(37, 99, 235, 0.16)' }}>
+              <Typography color="primary" fontWeight={700}>{existingDocumentMessage || 'กำลังดึงข้อมูลเดิมจากฐานข้อมูล...'}</Typography>
+            </Box>
+          )}
+
+          {!isLoadingExistingDocument && existingDocumentMessage && editTqf5DocumentId && (
+            <Box sx={{ mb: 2, p: 2, borderRadius: 2, bgcolor: existingDocumentMessage.includes('ไม่สามารถ') ? 'rgba(239, 68, 68, 0.08)' : 'rgba(22, 163, 74, 0.08)', border: existingDocumentMessage.includes('ไม่สามารถ') ? '1px solid rgba(239, 68, 68, 0.18)' : '1px solid rgba(22, 163, 74, 0.18)' }}>
+              <Typography color={existingDocumentMessage.includes('ไม่สามารถ') ? 'error' : 'success.main'} fontWeight={700}>{existingDocumentMessage}</Typography>
+            </Box>
+          )}
 
           <Box className={styles.contentFlow}>
             <Box className={styles.sectionBlock}><Typography className={styles.sectionTitle}>15. แผนการปรับปรุง</Typography></Box>
