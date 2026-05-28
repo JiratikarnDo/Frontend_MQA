@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 import {
   Box,
   Button,
@@ -52,6 +54,30 @@ function getDocumentStatusChipSx(status) {
 
 function DocumentSelectDialog({ open, onClose, courseItem }) {
   const navigate = useNavigate()
+  
+  const apiUrl = import.meta.env.VITE_API_URL || ''
+  const [tqf3Deadline, setTqf3Deadline] = useState({ isOpen: true, message: '' })
+  const [tqf5Deadline, setTqf5Deadline] = useState({ isOpen: true, message: '' })
+
+  useEffect(() => {
+    if (open) {
+      const fetchDeadlines = async () => {
+        try {
+          const token = localStorage.getItem('mqa_token')
+          const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+          const res3 = await axios.get(`${apiUrl}/tqf3/deadline-status/mqa3`, { headers })
+          setTqf3Deadline({ isOpen: res3.data.is_open, message: res3.data.message })
+
+          const res5 = await axios.get(`${apiUrl}/tqf3/deadline-status/mqa5`, { headers })
+          setTqf5Deadline({ isOpen: res5.data.is_open, message: res5.data.message })
+        } catch (error) {
+          console.error("Cannot fetch deadlines:", error)
+        }
+      }
+      fetchDeadlines()
+    }
+  }, [open, apiUrl])
 
   const getDocumentInfo = (documentType) => {
     if (documentType === 'mqa3') {
@@ -73,6 +99,10 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
   const canOpenDocument = (documentType) => {
     const documentInfo = getDocumentInfo(documentType)
     if (!courseItem?.level) return false
+    
+    if (documentType === 'mqa3' && !tqf3Deadline.isOpen) return false
+    if (documentType === 'mqa5' && !tqf5Deadline.isOpen) return false
+
     if (documentInfo.status === 'submitted') return false
     if (documentInfo.status === 'waitingGrade') return false
     if (documentType === 'mqa5' && !isMqa3Saved()) return false
@@ -89,6 +119,10 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
   const getButtonText = (documentType) => {
     const documentInfo = getDocumentInfo(documentType)
+    
+    if (documentType === 'mqa3' && !tqf3Deadline.isOpen) return tqf3Deadline.message || 'นอกเวลาจัดทำ'
+    if (documentType === 'mqa5' && !tqf5Deadline.isOpen) return tqf5Deadline.message || 'นอกเวลาจัดทำ'
+
     if (documentType === 'mqa5' && !isMqa3Saved()) return 'ต้องบันทึก มคอ.3 ก่อน'
     if (documentInfo.status === 'submitted') return `${documentInfo.label} ส่งแล้ว ไม่สามารถแก้ไขได้`
     if (documentInfo.status === 'waitingGrade') return `ยังไม่สามารถจัดทำ ${documentInfo.label} ได้`
@@ -99,6 +133,10 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
   const getOptionDescription = (documentType) => {
     const documentInfo = getDocumentInfo(documentType)
+    
+    if (documentType === 'mqa3' && !tqf3Deadline.isOpen) return 'ขณะนี้ระบบปิดการจัดทำเอกสาร มคอ.3 แล้ว'
+    if (documentType === 'mqa5' && !tqf5Deadline.isOpen) return 'ขณะนี้ระบบปิดการจัดทำเอกสาร มคอ.5 แล้ว'
+
     if (documentType === 'mqa5' && !isMqa3Saved()) return 'ต้องมีการบันทึกเอกสาร มคอ.3 ของรายวิชานี้ก่อน จึงจะสามารถจัดทำ มคอ.5 ได้'
     if (documentInfo.status === 'submitted') return `เอกสาร ${documentInfo.label} ถูกส่งเข้าระบบแล้ว จึงไม่สามารถแก้ไขจากหน้านี้ได้`
     if (documentInfo.status === 'waitingGrade') return `เอกสาร ${documentInfo.label} ยังไม่พร้อมให้จัดทำในตอนนี้`
