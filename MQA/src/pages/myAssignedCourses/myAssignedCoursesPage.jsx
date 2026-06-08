@@ -121,9 +121,9 @@ function normalizeCourseOpeningRequest(apiData, fallbackData = {}) {
     majorName,
     semester,
     academicYear,
-    courseId: normalizeText(course?.course_id ?? course?.courseId ?? course?.id_course ?? ''),
-    courseCode: normalizeText(course?.course_code_snapshot ?? course?.courseCode ?? course?.course_code ?? ''),
-    courseName: normalizeText(course?.course_name_snapshot ?? course?.courseName ?? course?.course_name ?? ''),
+    courseId: normalizeText(course?.course_id ?? course?.courseId ?? course?.id_course ?? course?.course?.id ?? course?.course?.course_id ?? course?.course?.courseId ?? ''),
+    courseCode: normalizeText(course?.course_code_snapshot ?? course?.courseCode ?? course?.course_code ?? course?.course?.course_code ?? course?.course?.courseCode ?? ''),
+    courseName: normalizeText(course?.course_name_snapshot ?? course?.courseName ?? course?.course_name ?? course?.course?.course_name_th ?? course?.course?.courseNameTh ?? ''),
     groupNo: normalizeText(course?.group_no ?? course?.groupNo ?? course?.section_number ?? course?.sectionNumber ?? '1'),
     yearLevel: String(course?.year_level ?? course?.yearLevel ?? ''),
     studentCount: course?.student_count ?? course?.studentCount ?? 0,
@@ -284,8 +284,25 @@ function findBestOpeningCourseMatch(assignedRow, openingCourseRows) {
 
 function normalizeAssignedCourseRow(row, index, openingCourseRows = []) {
   const baseRow = normalizeAssignedCourseBaseRow(row, index)
-  const matchedOpeningCourse = baseRow.level ? null : findBestOpeningCourseMatch(baseRow, openingCourseRows)
-  return { ...baseRow, level: baseRow.level || matchedOpeningCourse?.level || '', openingRequestId: matchedOpeningCourse?.requestId || baseRow.requestId || '', openingRequestStatus: matchedOpeningCourse?.requestStatus || '', openingCourseItemId: matchedOpeningCourse?.id || baseRow.requestedCourseItemId || '' }
+  const matchedOpeningCourse = findBestOpeningCourseMatch(baseRow, openingCourseRows)
+  const fixedCourseId = normalizeText(matchedOpeningCourse?.courseId) || baseRow.courseId
+  return {
+    ...baseRow,
+    courseId: fixedCourseId,
+    level: baseRow.level || matchedOpeningCourse?.level || '',
+    curriculumName: baseRow.curriculumName && baseRow.curriculumName !== '-' ? baseRow.curriculumName : matchedOpeningCourse?.curriculumName || baseRow.curriculumName,
+    majorName: baseRow.majorName && baseRow.majorName !== '-' ? baseRow.majorName : matchedOpeningCourse?.majorName || baseRow.majorName,
+    semester: baseRow.semester || matchedOpeningCourse?.semester || '',
+    academicYear: baseRow.academicYear || matchedOpeningCourse?.academicYear || '',
+    yearLevel: baseRow.yearLevel && baseRow.yearLevel !== '-' ? baseRow.yearLevel : matchedOpeningCourse?.yearLevel || baseRow.yearLevel,
+    sectionNumber: baseRow.sectionNumber || matchedOpeningCourse?.groupNo || '1',
+    studentCount: baseRow.studentCount || matchedOpeningCourse?.studentCount || 0,
+    openingRequestId: matchedOpeningCourse?.requestId || baseRow.requestId || '',
+    openingRequestStatus: matchedOpeningCourse?.requestStatus || '',
+    openingCourseItemId: matchedOpeningCourse?.id || baseRow.requestedCourseItemId || '',
+    requestedCourseItemId: baseRow.requestedCourseItemId || matchedOpeningCourse?.id || '',
+    rawData: { ...baseRow.rawData, matchedOpeningCourse: matchedOpeningCourse || null, originalCourseId: baseRow.courseId, fixedCourseId },
+  }
 }
 
 function getDocumentMatchScore(courseItem, documentRow) {

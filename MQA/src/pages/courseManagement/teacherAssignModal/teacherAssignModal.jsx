@@ -21,10 +21,10 @@ const getAuthConfig = () => {
 }
 
 const normalizeText = (value) => String(value ?? '').trim()
-const toNumberIfPossible = (value) => {
-  const numberValue = Number(value)
-  return Number.isNaN(numberValue) ? value : numberValue
-}
+const isIntegerLike = (value) => /^\d+$/.test(normalizeText(value))
+const toNumberIfPossible = (value) => isIntegerLike(value) ? Number(value) : value
+const getUniqueStringList = (valueList = []) => Array.from(new Set((Array.isArray(valueList) ? valueList : []).map((value) => normalizeText(value)).filter(Boolean)))
+const getTeacherNameKey = (value) => normalizeText(value).toLowerCase().replace(/\s+/g, ' ')
 
 const getResponseList = (data, keyList = []) => {
   if (Array.isArray(data)) return data
@@ -82,22 +82,6 @@ function getTeacherFullName(item) {
   return normalizeText([item?.prefixname ?? item?.prefix_name ?? item?.prefixName, item?.first_name ?? item?.firstName ?? item?.firstname, item?.last_name ?? item?.lastName ?? item?.lastname].filter(Boolean).join(' '))
 }
 
-function normalizeDepartmentFromApi(item) {
-  const departmentId = item?.department_id ?? item?.departmentId ?? item?.id
-  const departmentName = normalizeText(item?.department_name ?? item?.departmentName ?? item?.department_name_th ?? item?.departmentNameTh ?? item?.name_th ?? item?.name ?? item?.major_name ?? item?.majorName)
-  const majorName = normalizeText(item?.major_name ?? item?.majorName ?? departmentName.replace(/^สาขา/, ''))
-  return { id: String(departmentId), departmentId, departmentName: departmentName || '-', majorName: majorName || departmentName || '-', rawData: item }
-}
-
-function normalizeTeacherFromUserApi(item, departmentNameMap = new Map()) {
-  const teacherId = item?.teacher_id ?? item?.teacherId ?? item?.user_id ?? item?.userId ?? item?.id
-  const departmentId = item?.department_id ?? item?.departmentId ?? item?.department?.id ?? ''
-  const departmentNameFromMap = departmentId ? departmentNameMap.get(String(departmentId)) : ''
-  const departmentName = normalizeText(item?.department_name ?? item?.departmentName ?? item?.department?.department_name ?? item?.department?.departmentName ?? item?.department?.name ?? departmentNameFromMap)
-  const majorName = normalizeText(item?.major_name ?? item?.majorName ?? item?.department?.major_name ?? item?.department?.majorName ?? departmentName.replace(/^สาขา/, ''))
-  return { id: String(teacherId), teacherId, teacherName: getTeacherFullName(item) || '-', teacherRole: getRoleLabel(item?.role ?? item?.teacher_role ?? item?.teacherRole), role: normalizeText(item?.role ?? item?.teacher_role ?? item?.teacherRole), majorName: majorName || '-', departmentId: departmentId ? String(departmentId) : '', departmentName: departmentName || '-', rawData: item }
-}
-
 function getDepartmentIdFromUser(user) {
   return user?.department_id ?? user?.departmentId ?? user?.department?.id ?? ''
 }
@@ -106,22 +90,75 @@ function getDepartmentNameFromUser(user) {
   return normalizeText(user?.department_name ?? user?.departmentName ?? user?.department?.department_name ?? user?.department?.departmentName ?? user?.department?.name)
 }
 
+function getMajorNameFromUser(user) {
+  const departmentName = getDepartmentNameFromUser(user)
+  return normalizeText(user?.major_name ?? user?.majorName ?? user?.department?.major_name ?? user?.department?.majorName ?? departmentName.replace(/^สาขา/, ''))
+}
+
+function normalizeDepartmentFromApi(item) {
+  const departmentId = item?.department_id ?? item?.departmentId ?? item?.id
+  const departmentName = normalizeText(item?.department_name ?? item?.departmentName ?? item?.department_name_th ?? item?.departmentNameTh ?? item?.name_th ?? item?.name ?? item?.major_name ?? item?.majorName)
+  const majorName = normalizeText(item?.major_name ?? item?.majorName ?? departmentName.replace(/^สาขา/, ''))
+  return { id: departmentId ? String(departmentId) : '', departmentId: departmentId ? String(departmentId) : '', departmentName: departmentName || (departmentId ? `สาขา ID ${departmentId}` : '-'), majorName: majorName || departmentName || (departmentId ? `สาขา ID ${departmentId}` : '-'), rawData: item }
+}
+
+function normalizeDepartmentFromUserApi(user) {
+  const departmentId = getDepartmentIdFromUser(user)
+  const departmentName = getDepartmentNameFromUser(user)
+  const majorName = getMajorNameFromUser(user)
+  if (!departmentId && !departmentName && !majorName) return null
+  return { id: departmentId ? String(departmentId) : normalizeText(departmentName || majorName), departmentId: departmentId ? String(departmentId) : '', departmentName: departmentName || majorName || (departmentId ? `สาขา ID ${departmentId}` : '-'), majorName: majorName || departmentName || (departmentId ? `สาขา ID ${departmentId}` : '-'), rawData: user }
+}
+
+function mergeDepartmentList(...departmentLists) {
+  const departmentMap = new Map()
+  departmentLists.flat().filter(Boolean).forEach((department) => {
+    const normalizedDepartment = normalizeDepartmentFromApi(department)
+    if (!normalizedDepartment.id || normalizedDepartment.departmentName === '-') return
+    const key = String(normalizedDepartment.id)
+    const oldDepartment = departmentMap.get(key)
+    if (!oldDepartment) departmentMap.set(key, normalizedDepartment)
+    else departmentMap.set(key, { ...oldDepartment, departmentName: oldDepartment.departmentName?.startsWith('สาขา ID') ? normalizedDepartment.departmentName : oldDepartment.departmentName, majorName: oldDepartment.majorName?.startsWith('สาขา ID') ? normalizedDepartment.majorName : oldDepartment.majorName, rawData: oldDepartment.rawData })
+  })
+  return Array.from(departmentMap.values()).sort((a, b) => a.departmentName.localeCompare(b.departmentName, 'th'))
+}
+
+function normalizeTeacherFromUserApi(item, departmentNameMap = new Map(), departmentMajorNameMap = new Map()) {
+  const teacherId = item?.teacher_id ?? item?.teacherId ?? item?.user_id ?? item?.userId ?? item?.id
+  const departmentId = getDepartmentIdFromUser(item)
+  const departmentNameFromMap = departmentId ? departmentNameMap.get(String(departmentId)) : ''
+  const majorNameFromMap = departmentId ? departmentMajorNameMap.get(String(departmentId)) : ''
+  const departmentName = normalizeText(item?.department_name ?? item?.departmentName ?? item?.department?.department_name ?? item?.department?.departmentName ?? item?.department?.name ?? departmentNameFromMap)
+  const majorName = normalizeText(item?.major_name ?? item?.majorName ?? item?.department?.major_name ?? item?.department?.majorName ?? majorNameFromMap ?? departmentName.replace(/^สาขา/, ''))
+  return { id: teacherId ? String(teacherId) : '', teacherId, teacherName: getTeacherFullName(item) || '-', teacherRole: getRoleLabel(item?.role ?? item?.teacher_role ?? item?.teacherRole), role: normalizeText(item?.role ?? item?.teacher_role ?? item?.teacherRole), majorName: majorName || departmentName || '-', departmentId: departmentId ? String(departmentId) : '', departmentName: departmentName || majorName || (departmentId ? `สาขา ID ${departmentId}` : '-'), rawData: item }
+}
+
+function getAssignedTeacherObjectId(teacher) {
+  return teacher?.teacher_id ?? teacher?.teacherId ?? teacher?.user_id ?? teacher?.userId ?? teacher?.id
+}
+
 function getAssignedTeacherIdList(courseItem) {
   const directIdList = getResponseList(courseItem?.assignedTeacherIds ?? courseItem?.assigned_teacher_ids ?? courseItem?.rawData?.assigned_teacher_ids ?? courseItem?.rawData?.assignedTeacherIds)
   const teacherObjectList = getResponseList(courseItem?.assignedTeacherList ?? courseItem?.assigned_teachers ?? courseItem?.assignedTeachersRaw ?? courseItem?.rawData?.assigned_teachers ?? courseItem?.rawData?.assignedTeachers)
-  const objectIdList = teacherObjectList.map((teacher) => teacher?.teacher_id ?? teacher?.teacherId ?? teacher?.user_id ?? teacher?.userId ?? teacher?.id).filter(Boolean)
-  return [...directIdList, ...objectIdList].map((id) => String(id))
+  const objectIdList = teacherObjectList.map(getAssignedTeacherObjectId).filter(Boolean)
+  return getUniqueStringList([...directIdList, ...objectIdList])
 }
 
 function getAssignedTeacherNameList(courseItem) {
   const nameList = getResponseList(courseItem?.assignedTeachers)
   const teacherObjectList = getResponseList(courseItem?.assignedTeacherList ?? courseItem?.assigned_teachers ?? courseItem?.assignedTeachersRaw ?? courseItem?.rawData?.assigned_teachers ?? courseItem?.rawData?.assignedTeachers)
   const objectNameList = teacherObjectList.map((teacher) => getTeacherFullName(teacher)).filter(Boolean)
-  return [...nameList, ...objectNameList].map((name) => normalizeText(name)).filter(Boolean)
+  const nameMap = new Map()
+  const mergedNameList = [...nameList, ...objectNameList].map((name) => normalizeText(name)).filter(Boolean)
+  mergedNameList.forEach((name) => {
+    const key = getTeacherNameKey(name)
+    if (key && !nameMap.has(key)) nameMap.set(key, name)
+  })
+  return Array.from(nameMap.values())
 }
 
 function getRequestedCourseItemId(courseItem) {
-  return courseItem?.requestedCourseItemId ?? courseItem?.requested_course_item_id ?? courseItem?.requestedCourseItemID ?? courseItem?.rawData?.requested_course_item_id ?? courseItem?.rawData?.requestedCourseItemId ?? courseItem?.id
+  return courseItem?.requestedCourseItemId ?? courseItem?.requested_course_item_id ?? courseItem?.requestedCourseItemID ?? courseItem?.rawData?.requested_course_item_id ?? courseItem?.rawData?.requestedCourseItemId ?? courseItem?.rawData?.course_id ?? courseItem?.rawData?.courseId ?? courseItem?.id
 }
 
 function getCourseDepartmentId(courseItem) {
@@ -132,12 +169,16 @@ function getCourseMajorName(courseItem) {
   return normalizeText(courseItem?.majorName ?? courseItem?.major_name ?? courseItem?.rawData?.major_name ?? courseItem?.rawData?.majorName)
 }
 
+function normalizeDepartmentNameForCompare(value) {
+  return normalizeText(value).toLowerCase().replace(/^สาขา/, '').replace(/\s+/g, '')
+}
+
 function isSameCourseDepartment(department, courseItem, fallbackDepartmentId = '', fallbackDepartmentName = '') {
   const courseDepartmentId = normalizeText(getCourseDepartmentId(courseItem) || fallbackDepartmentId)
   const departmentId = normalizeText(department?.id ?? department?.departmentId)
   if (courseDepartmentId && departmentId) return courseDepartmentId === departmentId
-  const courseMajorName = normalizeText(getCourseMajorName(courseItem) || fallbackDepartmentName).toLowerCase()
-  const departmentMajorName = normalizeText(department?.majorName ?? department?.departmentName).toLowerCase()
+  const courseMajorName = normalizeDepartmentNameForCompare(getCourseMajorName(courseItem) || fallbackDepartmentName)
+  const departmentMajorName = normalizeDepartmentNameForCompare(department?.majorName ?? department?.departmentName)
   if (!courseMajorName || !departmentMajorName) return false
   return courseMajorName === departmentMajorName || departmentMajorName.includes(courseMajorName) || courseMajorName.includes(departmentMajorName)
 }
@@ -146,8 +187,8 @@ function isTeacherInDepartment(teacher, departmentId, departmentData = null) {
   const teacherDepartmentId = normalizeText(teacher?.departmentId)
   const targetDepartmentId = normalizeText(departmentId)
   if (targetDepartmentId && teacherDepartmentId) return teacherDepartmentId === targetDepartmentId
-  const targetDepartmentName = normalizeText(departmentData?.departmentName ?? departmentData?.majorName).toLowerCase()
-  const teacherDepartmentName = normalizeText(teacher?.departmentName ?? teacher?.majorName).toLowerCase()
+  const targetDepartmentName = normalizeDepartmentNameForCompare(departmentData?.departmentName ?? departmentData?.majorName)
+  const teacherDepartmentName = normalizeDepartmentNameForCompare(teacher?.departmentName ?? teacher?.majorName)
   if (!targetDepartmentName || !teacherDepartmentName) return false
   return teacherDepartmentName === targetDepartmentName || teacherDepartmentName.includes(targetDepartmentName) || targetDepartmentName.includes(teacherDepartmentName)
 }
@@ -187,7 +228,8 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
       let currentUserData = null
       let nextCurrentUserDepartmentId = ''
       let nextCurrentUserDepartmentName = ''
-      let nextDepartmentList = []
+      let departmentListFromDepartmentApi = []
+      let userList = []
 
       try {
         const userResponse = await axios.get(`${apiUrl}/auth/me`, config)
@@ -204,28 +246,37 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
 
       try {
         const departmentResponse = await axios.get(`${apiUrl}${DEPARTMENT_ENDPOINT}`, config)
-        const departmentList = getResponseList(departmentResponse.data, ['items', 'data', 'results', 'departments'])
-        nextDepartmentList = departmentList.map(normalizeDepartmentFromApi).filter((department) => department.id && department.departmentName !== '-')
-        setDepartmentOptions(nextDepartmentList)
+        const departmentResponseList = getResponseList(departmentResponse.data, ['items', 'data', 'results', 'departments'])
+        departmentListFromDepartmentApi = departmentResponseList.map(normalizeDepartmentFromApi).filter((department) => department.id && department.departmentName !== '-')
       } catch (error) {
         console.error('Error fetching departments:', error)
-        setDepartmentOptions([])
-        setDepartmentErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงรายการสาขาจากระบบได้'))
-      } finally {
-        setIsLoadingDepartments(false)
+        setDepartmentErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงรายการสาขาจากระบบได้ จึงใช้ข้อมูลสาขาจากรายชื่อผู้ใช้แทน'))
       }
 
-      const departmentNameMap = new Map(nextDepartmentList.map((department) => [String(department.departmentId), department.departmentName]))
-      const usersResponse = await axios.get(`${apiUrl}${USER_ENDPOINT}`, config)
-      const userList = getResponseList(usersResponse.data, ['items', 'data', 'results', 'users'])
-      const normalizedTeacherList = userList.map((user) => normalizeTeacherFromUserApi(user, departmentNameMap)).filter((teacher) => teacher.id && teacher.teacherName !== '-' && isTeacherRole(teacher.role))
+      try {
+        const usersResponse = await axios.get(`${apiUrl}${USER_ENDPOINT}`, config)
+        userList = getResponseList(usersResponse.data, ['items', 'data', 'results', 'users'])
+      } catch (error) {
+        console.error('Error fetching teacher users:', error)
+        setAllTeacherOptions([])
+        setErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงรายชื่ออาจารย์จากระบบได้'))
+        return
+      }
 
-      const currentUserAsTeacher = currentUserData ? normalizeTeacherFromUserApi(currentUserData, departmentNameMap) : null
+      const departmentListFromUsers = userList.map(normalizeDepartmentFromUserApi).filter(Boolean)
+      const mergedDepartmentList = mergeDepartmentList(departmentListFromDepartmentApi, departmentListFromUsers)
+      const departmentNameMap = new Map(mergedDepartmentList.map((department) => [String(department.departmentId || department.id), department.departmentName]))
+      const departmentMajorNameMap = new Map(mergedDepartmentList.map((department) => [String(department.departmentId || department.id), department.majorName]))
+      const normalizedTeacherList = userList.map((user) => normalizeTeacherFromUserApi(user, departmentNameMap, departmentMajorNameMap)).filter((teacher) => teacher.id && teacher.teacherName !== '-' && isTeacherRole(teacher.role))
+
+      const currentUserAsTeacher = currentUserData ? normalizeTeacherFromUserApi(currentUserData, departmentNameMap, departmentMajorNameMap) : null
       if (currentUserAsTeacher?.id && currentUserAsTeacher.teacherName !== '-' && isTeacherRole(currentUserAsTeacher.role)) {
         const alreadyExists = normalizedTeacherList.some((teacher) => String(teacher.id) === String(currentUserAsTeacher.id))
         if (!alreadyExists) normalizedTeacherList.unshift(currentUserAsTeacher)
       }
 
+      const nextDepartmentList = mergeDepartmentList(mergedDepartmentList, currentUserAsTeacher ? [normalizeDepartmentFromUserApi(currentUserAsTeacher.rawData)] : [])
+      setDepartmentOptions(nextDepartmentList)
       setAllTeacherOptions(normalizedTeacherList)
       setSelectedTeacherMap((prev) => {
         const nextMap = { ...prev }
@@ -233,9 +284,10 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
         return nextMap
       })
     } catch (error) {
-      console.error('Error fetching teacher users:', error)
+      console.error('Error fetching modal data:', error)
       setAllTeacherOptions([])
-      setErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงรายชื่ออาจารย์จากระบบได้'))
+      setDepartmentOptions([])
+      setErrorMessage(getErrorMessage(error, 'ไม่สามารถดึงข้อมูลสำหรับมอบหมายอาจารย์ได้'))
     } finally {
       setIsLoadingTeachers(false)
       setIsLoadingDepartments(false)
@@ -290,15 +342,20 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
     if (!allTeacherOptions.length || !courseItem) return
     const assignedTeacherNameList = getAssignedTeacherNameList(courseItem)
     if (!assignedTeacherNameList.length) return
-    const matchedAssignedTeacherList = allTeacherOptions.filter((teacher) => assignedTeacherNameList.includes(teacher.teacherName))
+
+    const assignedNameKeySet = new Set(assignedTeacherNameList.map(getTeacherNameKey).filter(Boolean))
+    const matchedAssignedTeacherList = allTeacherOptions.filter((teacher) => assignedNameKeySet.has(getTeacherNameKey(teacher.teacherName)))
     if (!matchedAssignedTeacherList.length) return
 
-    setSelectedTeacherIds((prev) => {
-      const nextIdSet = new Set(prev)
-      matchedAssignedTeacherList.forEach((teacher) => nextIdSet.add(teacher.id))
-      return Array.from(nextIdSet)
+    const matchedNameKeySet = new Set(matchedAssignedTeacherList.map((teacher) => getTeacherNameKey(teacher.teacherName)).filter(Boolean))
+    const originalAssignedIdList = getAssignedTeacherIdList(courseItem)
+    const originalAssignedNameList = getAssignedTeacherNameList(courseItem)
+    const fallbackAssignedIdList = originalAssignedIdList.filter((teacherId, index) => {
+      const nameKey = getTeacherNameKey(originalAssignedNameList[index])
+      return !nameKey || !matchedNameKeySet.has(nameKey)
     })
 
+    setSelectedTeacherIds(getUniqueStringList([...fallbackAssignedIdList, ...matchedAssignedTeacherList.map((teacher) => teacher.id)]))
     setSelectedTeacherMap((prev) => {
       const nextMap = { ...prev }
       matchedAssignedTeacherList.forEach((teacher) => { nextMap[teacher.id] = teacher })
@@ -312,7 +369,16 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
     return teacherOptions.filter((teacher) => teacher.teacherName.toLowerCase().includes(normalizedSearchText) || teacher.teacherRole.toLowerCase().includes(normalizedSearchText) || teacher.departmentName.toLowerCase().includes(normalizedSearchText) || teacher.majorName.toLowerCase().includes(normalizedSearchText))
   }, [searchText, teacherOptions])
 
-  const selectedTeacherList = useMemo(() => selectedTeacherIds.map((teacherId) => selectedTeacherMap[teacherId]).filter(Boolean), [selectedTeacherIds, selectedTeacherMap])
+  const selectedTeacherList = useMemo(() => {
+    const teacherMap = new Map()
+    selectedTeacherIds.forEach((teacherId) => {
+      const teacher = selectedTeacherMap[teacherId]
+      if (!teacher) return
+      const key = getTeacherNameKey(teacher.teacherName) ? `name:${getTeacherNameKey(teacher.teacherName)}` : `id:${teacher.id}`
+      if (!teacherMap.has(key)) teacherMap.set(key, teacher)
+    })
+    return Array.from(teacherMap.values())
+  }, [selectedTeacherIds, selectedTeacherMap])
 
   const handleChangeTeacherScope = (nextScope) => {
     setTeacherScope(nextScope)
@@ -323,21 +389,24 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
   }
 
   const handleToggleTeacher = (teacher) => {
-    setSelectedTeacherIds((prev) => prev.includes(teacher.id) ? prev.filter((item) => item !== teacher.id) : [...prev, teacher.id])
+    setSelectedTeacherIds((prev) => prev.includes(teacher.id) ? prev.filter((item) => item !== teacher.id) : getUniqueStringList([...prev, teacher.id]))
     setSelectedTeacherMap((prev) => ({ ...prev, [teacher.id]: teacher }))
   }
 
-  const handleRemoveSelectedTeacher = (teacherId) => setSelectedTeacherIds((prev) => prev.filter((item) => item !== teacherId))
+  const handleRemoveSelectedTeacher = (teacherId) => {
+    const removingNameKey = getTeacherNameKey(selectedTeacherMap[teacherId]?.teacherName)
+    setSelectedTeacherIds((prev) => prev.filter((item) => item !== teacherId && (!removingNameKey || getTeacherNameKey(selectedTeacherMap[item]?.teacherName) !== removingNameKey)))
+  }
 
   const handleSave = async () => {
     const requestedCourseItemId = getRequestedCourseItemId(courseItem)
-    if (!requestedCourseItemId) {
-      window.alert('ไม่พบรหัสรายการรายวิชาที่ต้องการมอบหมาย')
+    if (!requestedCourseItemId || !isIntegerLike(requestedCourseItemId)) {
+      window.alert('ไม่พบ ID ตัวเลขของรายการรายวิชาที่ต้องการมอบหมาย กรุณาตรวจสอบข้อมูลจากหน้ารายการรายวิชา')
       return
     }
 
     setIsSaving(true)
-    const selectedTeacherIdPayload = selectedTeacherIds.map(toNumberIfPossible)
+    const selectedTeacherIdPayload = getUniqueStringList(selectedTeacherList.map((teacher) => teacher.teacherId ?? teacher.id)).map(toNumberIfPossible).filter((teacherId) => teacherId !== '' && teacherId !== null && teacherId !== undefined)
     const selectedTeacherNames = selectedTeacherList.map((teacher) => teacher.teacherName)
     const hasExistingAssignment = Boolean(courseItem?.assignmentId) || Boolean(courseItem?.assignment_id) || Boolean(courseItem?.rawData?.assignment_id) || Boolean(courseItem?.rawData?.assignmentId) || Boolean(courseItem?.assignedTeachers?.length)
 
@@ -442,7 +511,7 @@ function TeacherAssignModal({ open, onClose, courseItem, onSave }) {
                   )
                 })}
 
-                {!isLoadingTeachers && !errorMessage && !shouldShowSelectDepartmentMessage && !availableTeacherOptions.length && <Box className={styles.emptyState}><Typography className={styles.emptyStateTitle}>ไม่พบอาจารย์ในสาขาที่เลือก</Typography><Typography className={styles.emptyStateDescription}>ตรวจสอบว่า /users/ ส่ง department_id ของอาจารย์กลับมาหรือไม่ หรือสาขานี้ยังไม่มีอาจารย์ในระบบ</Typography></Box>}
+                {!isLoadingTeachers && !errorMessage && !shouldShowSelectDepartmentMessage && !availableTeacherOptions.length && <Box className={styles.emptyState}><Typography className={styles.emptyStateTitle}>ไม่พบอาจารย์ในสาขาที่เลือก</Typography><Typography className={styles.emptyStateDescription}>ตรวจสอบว่า /users/ ส่ง department_id ของอาจารย์กลับมาหรือไม่ หรือ API /users/ อาจส่งกลับมาเฉพาะอาจารย์ในสาขาของผู้ใช้ปัจจุบัน</Typography></Box>}
               </Box>
             </Box>
 
