@@ -16,6 +16,8 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useNavigate } from 'react-router-dom'
 import styles from './documentSelectDialog.module.css'
 
+const MQA3_ACTIVE_DRAFT_KEY = 'mqa3ActiveDraftKey'
+
 function getLevelLabel(level) {
   if (level === 'bachelor') return 'ปริญญาตรี'
   if (level === 'master') return 'ปริญญาโท'
@@ -50,6 +52,80 @@ function getDocumentStatusChipSx(status) {
   if (status === 'draft') return { backgroundColor: 'rgba(245, 158, 11, 0.12)', color: '#b45309', border: '1px solid rgba(245, 158, 11, 0.22)', fontWeight: 800 }
   if (status === 'rejected') return { backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#b91c1c', border: '1px solid rgba(239, 68, 68, 0.22)', fontWeight: 800 }
   return { backgroundColor: 'rgba(59, 130, 246, 0.12)', color: '#1d4ed8', border: '1px solid rgba(59, 130, 246, 0.22)', fontWeight: 800 }
+}
+
+function getUsableDocumentId(documentInfo) {
+  if (!documentInfo || documentInfo.status === 'notStarted') return ''
+  return normalizeText(documentInfo.id)
+}
+
+function getMqa3DraftKeyFromState(state = {}) {
+  const courseItem = state?.courseItem ?? {}
+  const keySource = state?.mqa3DraftKey || state?.openingCourseItemId || state?.requestedCourseItemId || state?.courseId || state?.courseCode || courseItem?.openingCourseItemId || courseItem?.requestedCourseItemId || courseItem?.courseId || courseItem?.courseCode || ''
+  if (keySource) return String(keySource).startsWith('mqa3Draft:') ? String(keySource) : `mqa3Draft:${keySource}`
+  return 'mqa3Draft:new'
+}
+
+function clearSessionStorageKey(key) {
+  try {
+    if (key) sessionStorage.removeItem(key)
+  } catch (error) {
+    console.warn('Cannot remove MQA3 draft from sessionStorage:', error)
+  }
+}
+
+function setActiveMqa3DraftKey(draftKey) {
+  try {
+    if (draftKey) sessionStorage.setItem(MQA3_ACTIVE_DRAFT_KEY, draftKey)
+  } catch (error) {
+    console.warn('Cannot set active MQA3 draft key:', error)
+  }
+}
+
+function clearMqa3DraftForCreate(draftKey) {
+  clearSessionStorageKey(draftKey)
+  setActiveMqa3DraftKey(draftKey)
+}
+
+function clearMqa3DocumentFieldsFromCourseItem(courseItem) {
+  if (!courseItem || typeof courseItem !== 'object') return courseItem
+
+  const nextRawData = courseItem.rawData && typeof courseItem.rawData === 'object'
+    ? {
+        ...courseItem.rawData,
+        mqa3Id: '',
+        mqa3_id: '',
+        tqf3Id: '',
+        tqf3_id: '',
+        mqa3Status: 'notStarted',
+        mqa3_status: 'notStarted',
+        tqf3Status: 'notStarted',
+        tqf3_status: 'notStarted',
+        selectedDocumentId: '',
+        documentId: '',
+        document_id: '',
+        mqa3: null,
+        tqf3: null,
+      }
+    : courseItem.rawData
+
+  return {
+    ...courseItem,
+    mqa3Id: '',
+    mqa3_id: '',
+    tqf3Id: '',
+    tqf3_id: '',
+    mqa3Status: 'notStarted',
+    mqa3_status: 'notStarted',
+    tqf3Status: 'notStarted',
+    tqf3_status: 'notStarted',
+    selectedDocumentId: '',
+    documentId: '',
+    document_id: '',
+    mqa3: null,
+    tqf3: null,
+    rawData: nextRawData,
+  }
 }
 
 function DocumentSelectDialog({ open, onClose, courseItem }) {
@@ -93,7 +169,7 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
   const isMqa3Saved = () => {
     const mqa3Info = getDocumentInfo('mqa3')
-    return Boolean(mqa3Info.id) && mqa3Info.status !== 'notStarted'
+    return Boolean(getUsableDocumentId(mqa3Info))
   }
 
   const canOpenDocument = (documentType) => {
@@ -114,7 +190,8 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
     if (documentInfo.status === 'submitted') return 'submittedLocked'
     if (documentInfo.status === 'waitingGrade') return 'waitingGradeLocked'
     if (documentType === 'mqa5' && !isMqa3Saved()) return 'mqa3RequiredLocked'
-    return documentInfo.id ? 'edit' : 'create'
+    if (documentInfo.status === 'notStarted') return 'create'
+    return getUsableDocumentId(documentInfo) ? 'edit' : 'create'
   }
 
   const getButtonText = (documentType) => {
@@ -150,22 +227,27 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
     const mqa3Info = getDocumentInfo('mqa3')
     const mqa5Info = getDocumentInfo('mqa5')
     const selectedDocumentInfo = getDocumentInfo(documentType)
-    const hasMqa3Reference = Boolean(mqa3Info.id) && mqa3Info.status !== 'notStarted'
+    const selectedDocumentId = getUsableDocumentId(selectedDocumentInfo)
+    const mqa3DocumentId = getUsableDocumentId(mqa3Info)
+    const mqa5DocumentId = getUsableDocumentId(mqa5Info)
+    const isCreatingMqa3 = documentType === 'mqa3' && selectedDocumentInfo.status === 'notStarted'
+    const nextCourseItem = isCreatingMqa3 ? clearMqa3DocumentFieldsFromCourseItem(courseItem) : courseItem
+    const hasMqa3Reference = Boolean(mqa3DocumentId)
 
-    return {
+    const navigationState = {
       documentType,
-      documentMode: getDocumentMode(documentType),
-      isExistingDocument: Boolean(selectedDocumentInfo.id),
-      selectedDocumentId: selectedDocumentInfo.id,
+      documentMode: isCreatingMqa3 ? 'create' : getDocumentMode(documentType),
+      isExistingDocument: isCreatingMqa3 ? false : Boolean(selectedDocumentId),
+      selectedDocumentId: isCreatingMqa3 ? '' : selectedDocumentId,
       selectedDocumentStatus: selectedDocumentInfo.status,
-      hasMqa3Reference,
-      sourceMqa3Id: mqa3Info.id,
-      sourceTqf3Id: mqa3Info.id,
-      referenceMqa3Id: mqa3Info.id,
-      referenceTqf3Id: mqa3Info.id,
-      referenceMqa3Status: mqa3Info.status,
-      referenceTqf3Status: mqa3Info.status,
-      courseItem,
+      hasMqa3Reference: isCreatingMqa3 ? false : hasMqa3Reference,
+      sourceMqa3Id: isCreatingMqa3 ? '' : mqa3DocumentId,
+      sourceTqf3Id: isCreatingMqa3 ? '' : mqa3DocumentId,
+      referenceMqa3Id: isCreatingMqa3 ? '' : mqa3DocumentId,
+      referenceTqf3Id: isCreatingMqa3 ? '' : mqa3DocumentId,
+      referenceMqa3Status: isCreatingMqa3 ? 'notStarted' : mqa3Info.status,
+      referenceTqf3Status: isCreatingMqa3 ? 'notStarted' : mqa3Info.status,
+      courseItem: nextCourseItem,
       assignmentId: courseItem?.id ?? '',
       level: courseItem?.level ?? '',
       levelLabel: getLevelLabel(courseItem?.level),
@@ -183,21 +265,35 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
       sectionNumber: courseItem?.sectionNumber ?? '',
       studentCount: courseItem?.studentCount ?? 0,
       assignedTeacher: courseItem?.assignedTeacher ?? '',
-      mqa3Id: mqa3Info.id,
-      tqf3Id: mqa3Info.id,
-      mqa3Status: mqa3Info.status,
-      tqf3Status: mqa3Info.status,
-      mqa5Id: mqa5Info.id,
-      tqf5Id: mqa5Info.id,
+      mqa3Id: isCreatingMqa3 ? '' : mqa3DocumentId,
+      tqf3Id: isCreatingMqa3 ? '' : mqa3DocumentId,
+      mqa3Status: isCreatingMqa3 ? 'notStarted' : mqa3Info.status,
+      tqf3Status: isCreatingMqa3 ? 'notStarted' : mqa3Info.status,
+      mqa5Id: mqa5DocumentId,
+      tqf5Id: mqa5DocumentId,
       mqa5Status: mqa5Info.status,
       tqf5Status: mqa5Info.status,
     }
+
+    if (isCreatingMqa3) {
+      const freshDraftKey = getMqa3DraftKeyFromState(navigationState)
+      return { ...navigationState, mqa3DraftKey: freshDraftKey }
+    }
+
+    return navigationState
   }
 
   const handleNavigate = (path, documentType) => {
     if (!canOpenDocument(documentType)) return
+
+    const nextNavigationState = buildNavigationState(documentType)
+
+    if (documentType === 'mqa3' && nextNavigationState.documentMode === 'create') {
+      clearMqa3DraftForCreate(nextNavigationState.mqa3DraftKey)
+    }
+
     onClose()
-    navigate(path, { state: buildNavigationState(documentType) })
+    navigate(path, { state: nextNavigationState })
   }
 
   const mqa3Info = getDocumentInfo('mqa3')
@@ -265,7 +361,7 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
               <Typography className={styles.optionTitle}>
-                {mqa3Info.status === 'submitted' ? 'มคอ.3 ส่งแล้ว' : mqa3Info.id ? 'แก้ไข มคอ.3' : 'กรอก มคอ.3'}
+                {mqa3Info.status === 'submitted' ? 'มคอ.3 ส่งแล้ว' : getUsableDocumentId(mqa3Info) ? 'แก้ไข มคอ.3' : 'กรอก มคอ.3'}
               </Typography>
               <Chip label={getDocumentStatusLabel(mqa3Info.status)} size="small" sx={getDocumentStatusChipSx(mqa3Info.status)} />
             </Box>
@@ -286,7 +382,7 @@ function DocumentSelectDialog({ open, onClose, courseItem }) {
 
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
               <Typography className={styles.optionTitle}>
-                {!isMqa3Saved() ? 'มคอ.5 รอ มคอ.3' : mqa5Info.status === 'submitted' ? 'มคอ.5 ส่งแล้ว' : mqa5Info.id ? 'แก้ไข มคอ.5' : 'กรอก มคอ.5'}
+                {!isMqa3Saved() ? 'มคอ.5 รอ มคอ.3' : mqa5Info.status === 'submitted' ? 'มคอ.5 ส่งแล้ว' : getUsableDocumentId(mqa5Info) ? 'แก้ไข มคอ.5' : 'กรอก มคอ.5'}
               </Typography>
               <Chip label={!isMqa3Saved() ? 'รอ มคอ.3' : getDocumentStatusLabel(mqa5Info.status)} size="small" sx={!isMqa3Saved() ? getDocumentStatusChipSx('waitingGrade') : getDocumentStatusChipSx(mqa5Info.status)} />
             </Box>

@@ -21,6 +21,9 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
+import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded'
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded'
 import styles from './addSubjectPage.module.css'
 import SubjectReviewDialog from './subjectReviewDialog'
 
@@ -217,6 +220,10 @@ function AddSubjectPage() {
   const [isSubjectReviewDialogOpen, setIsSubjectReviewDialogOpen] = useState(false)
   const [isCourseLoading, setIsCourseLoading] = useState(false)
   const [isSavingSubject, setIsSavingSubject] = useState(false)
+  const [importingSubjectMode, setImportingSubjectMode] = useState('')
+  const [importStatusMessage, setImportStatusMessage] = useState('')
+  const [importStatusType, setImportStatusType] = useState('info')
+  const [importResultDialog, setImportResultDialog] = useState({ open: false, title: '', message: '', type: 'info', skippedDepartments: [] })
   const [courseErrorMessage, setCourseErrorMessage] = useState('')
 
   const fetchSubjectData = useCallback(async () => {
@@ -395,6 +402,78 @@ function AddSubjectPage() {
 
   const handleCloseSubjectReviewDialog = () => setIsSubjectReviewDialogOpen(false)
 
+  const handleImportWordSubjects = async (event, mode) => {
+    const selectedFiles = Array.from(event.target.files || [])
+    event.target.value = ''
+
+    if (selectedFiles.length === 0) return
+
+    if (!selectedDepartmentId) {
+      setImportResultDialog({
+        open: true,
+        title: 'ยังไม่สามารถนำเข้าได้',
+        message: 'กรุณาเลือกสาขาจากหน้าจัดการสาขาก่อน',
+        type: 'error',
+        skippedDepartments: [],
+      })
+      return
+    }
+
+    const importModeLabel = mode === 'code15' ? 'วิชา 15' : 'วิชาทั่วไป'
+    const formData = new FormData()
+    selectedFiles.forEach((file) => formData.append('files', file))
+    formData.append('courseLevel', formValue.curriculumLevel || 'bachelor')
+    formData.append('departmentId', String(selectedDepartmentId))
+
+    const importUrl = mode === 'code15'
+      ? `${apiUrl}/word-import/code-15`
+      : `${apiUrl}/word-import/courses`
+
+    try {
+      setImportingSubjectMode(mode)
+      setImportStatusType('info')
+      setImportStatusMessage(`กำลังนำเข้า${importModeLabel}จากไฟล์ Word ${selectedFiles.length} ไฟล์...`)
+      const config = getAuthConfig()
+      const response = await axios.post(importUrl, formData, config)
+
+      await fetchSubjectData()
+
+      const createdCount = response.data?.createdCount ?? 0
+      const skippedExistingCount = response.data?.skippedExistingCount ?? 0
+      const skippedFilteredCount = response.data?.skippedFilteredCount ?? 0
+      const skippedDepartmentNames = Array.from(new Set(
+        (response.data?.skippedSubjects || [])
+          .map((subject) => subject.departmentName)
+          .filter(Boolean)
+      ))
+      const successMessage = `นำเข้า${importModeLabel}สำเร็จ ${createdCount} รายการ | ข้ามวิชาที่มีอยู่แล้ว ${skippedExistingCount} รายการ | ข้ามรายการนอกประเภท ${skippedFilteredCount} รายการ`
+
+      setImportStatusType('success')
+      setImportStatusMessage(successMessage)
+      setImportResultDialog({
+        open: true,
+        title: 'นำเข้าสำเร็จ',
+        message: successMessage,
+        type: 'success',
+        skippedDepartments: skippedDepartmentNames,
+      })
+    } catch (error) {
+      console.error('Error importing word subjects:', error)
+      const errorMessage = error.response?.data?.detail || 'ไม่สามารถนำเข้ารายวิชาจากไฟล์ Word ได้ กรุณาลองใหม่อีกครั้ง'
+      setImportStatusType('error')
+      setImportStatusMessage(errorMessage)
+      setImportResultDialog({
+        open: true,
+        title: 'นำเข้าไม่สำเร็จ',
+        message: errorMessage,
+        type: 'error',
+        skippedDepartments: [],
+      })
+    } finally {
+      setImportingSubjectMode('')
+    }
+  }
+
   const buildCoursePayload = () => ({
     course_code: formValue.courseCode.trim(),
     course_level: formValue.curriculumLevel || null,
@@ -501,6 +580,77 @@ function AddSubjectPage() {
     }
   }
 
+  const handleBulkDeleteSubjects = async (selectedSubjects = []) => {
+    const subjectListWithId = Array.isArray(selectedSubjects)
+      ? selectedSubjects.filter((subject) => subject?.id)
+      : []
+
+    if (subjectListWithId.length === 0) {
+      window.alert('ยังไม่มีรายวิชาที่เลือกสำหรับลบ')
+      return false
+    }
+
+    const isConfirmed = window.confirm(`ต้องการลบรายวิชาที่เลือกทั้งหมด ${subjectListWithId.length} รายการใช่หรือไม่`)
+    if (!isConfirmed) return false
+
+    try {
+      const config = getAuthConfig()
+      const failedSubjectList = []
+      const deletedSubjectIdSet = new Set()
+
+      for (const subject of subjectListWithId) {
+        try {
+          await axios.delete(`${apiUrl}/course/${subject.id}`, config)
+          deletedSubjectIdSet.add(String(subject.id))
+        } catch (error) {
+          console.error('Error deleting selected subject:', subject, error)
+          failedSubjectList.push(subject)
+        }
+      }
+
+      await fetchSubjectData()
+
+      if (editingSubjectId && deletedSubjectIdSet.has(String(editingSubjectId))) {
+        resetForm()
+      }
+
+      if (failedSubjectList.length > 0) {
+        window.alert(`ลบบางรายการไม่สำเร็จ สำเร็จ ${subjectListWithId.length - failedSubjectList.length} รายการ ไม่สำเร็จ ${failedSubjectList.length} รายการ`)
+        return false
+      }
+
+      window.alert(`ลบรายวิชาที่เลือก ${subjectListWithId.length} รายการสำเร็จ`)
+      return true
+    } catch (error) {
+      console.error('Error deleting selected subjects:', error)
+      window.alert(error.response?.data?.detail || 'ไม่สามารถลบรายวิชาที่เลือกได้ กรุณาลองใหม่อีกครั้ง')
+      return false
+    }
+  }
+
+  const handleDeleteAllSubjects = async () => {
+    const subjectListWithId = subjectList.filter((subject) => subject.id)
+
+    if (subjectListWithId.length === 0) {
+      window.alert('ยังไม่มีรายวิชาสำหรับลบ')
+      return
+    }
+
+    const isConfirmed = window.confirm(`ต้องการลบรายวิชาทั้งหมด ${subjectListWithId.length} รายการใช่หรือไม่`)
+    if (!isConfirmed) return
+
+    try {
+      const config = getAuthConfig()
+      await Promise.all(subjectListWithId.map((subject) => axios.delete(`${apiUrl}/course/${subject.id}`, config)))
+      await fetchSubjectData()
+      resetForm()
+      window.alert(`ลบรายวิชาทั้งหมด ${subjectListWithId.length} รายการสำเร็จ`)
+    } catch (error) {
+      console.error('Error deleting all subjects:', error)
+      window.alert(error.response?.data?.detail || 'ไม่สามารถลบรายวิชาทั้งหมดได้ กรุณาลองใหม่อีกครั้ง')
+    }
+  }
+
   const renderPopupField = (label, fieldName, minRows = 5) => (
     <TextField fullWidth multiline minRows={minRows} maxRows={minRows} value={formValue[fieldName]} placeholder="คลิกเพื่อกรอกข้อมูล" InputProps={{ readOnly: true }} onClick={() => openPopup(fieldName, label)} className={styles.popupPreviewField} />
   )
@@ -540,6 +690,40 @@ function AddSubjectPage() {
             </Box>
 
             <Box className={styles.headerActionGroup}>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadRoundedIcon />}
+                className={styles.topImportButton}
+                disabled={Boolean(importingSubjectMode)}
+              >
+                นำเข้าวิชาทั่วไป
+                <input
+                  hidden
+                  multiple
+                  type="file"
+                  accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(event) => handleImportWordSubjects(event, 'courses')}
+                />
+              </Button>
+
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadRoundedIcon />}
+                className={styles.topImportButton}
+                disabled={Boolean(importingSubjectMode)}
+              >
+                นำเข้าวิชาเสรี
+                <input
+                  hidden
+                  multiple
+                  type="file"
+                  accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(event) => handleImportWordSubjects(event, 'code15')}
+                />
+              </Button>
+
               <Button variant="outlined" startIcon={<AssessmentRoundedIcon />} className={styles.topReviewButton} onClick={handleOpenSubjectReviewDialog}>ตรวจสอบรายวิชา</Button>
             </Box>
           </Box>
@@ -555,6 +739,11 @@ function AddSubjectPage() {
             <Typography className={styles.infoTitle}>หน้านี้ใช้สำหรับเพิ่มและแก้ไขรายวิชา</Typography>
             <Typography className={styles.infoDescription}>ใช้ฟอร์มนี้ในการเพิ่มรายวิชาใหม่ และสามารถกดปุ่มตรวจสอบรายวิชาเพื่อดูภาพรวมหน่วยกิต ค้นหา แก้ไข หรือลบรายวิชาที่มีอยู่แล้วได้</Typography>
             {isCourseLoading && <Typography className={styles.infoDescription}>กำลังโหลดข้อมูลรายวิชา...</Typography>}
+            {importStatusMessage && (
+              <Box className={`${styles.importStatus} ${importStatusType === 'success' ? styles.importStatusSuccess : importStatusType === 'error' ? styles.importStatusError : styles.importStatusInfo}`}>
+                <Typography className={styles.importStatusText}>{importStatusMessage}</Typography>
+              </Box>
+            )}
             {courseErrorMessage && <Typography className={styles.infoDescription}>{courseErrorMessage}</Typography>}
           </Box>
 
@@ -753,6 +942,53 @@ function AddSubjectPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={importResultDialog.open}
+        onClose={() => setImportResultDialog((prev) => ({ ...prev, open: false }))}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ className: styles.importResultDialogPaper }}
+      >
+        <DialogTitle className={styles.importResultDialogTitle}>
+          <Box className={`${styles.importResultHero} ${importResultDialog.type === 'success' ? styles.importResultHeroSuccess : styles.importResultHeroError}`}>
+            <Box className={styles.importResultIconWrap}>
+              {importResultDialog.type === 'success' ? <CheckCircleRoundedIcon /> : <ErrorOutlineRoundedIcon />}
+            </Box>
+
+            <Box>
+              <Typography className={styles.importResultTitleText}>{importResultDialog.title}</Typography>
+              <Typography className={styles.importResultSubtitle}>
+                {importResultDialog.type === 'success' ? 'ระบบบันทึกรายวิชาและอัปเดตรายการล่าสุดแล้ว' : 'ตรวจสอบไฟล์หรือข้อมูลสาขา แล้วลองนำเข้าอีกครั้ง'}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent className={styles.importResultDialogContent}>
+          <Box className={styles.importResultMessageBox}>
+            <Typography className={styles.importResultMessage}>{importResultDialog.message}</Typography>
+          </Box>
+
+          {importResultDialog.skippedDepartments.length > 0 && (
+            <Box className={styles.importSkippedDepartmentBox}>
+              <Typography className={styles.importSkippedDepartmentTitle}>มีข้อมูลเอกสารนี้อยู่แล้วในสาขาวิชา</Typography>
+
+              <Box className={styles.importSkippedDepartmentList}>
+                {importResultDialog.skippedDepartments.map((departmentName) => (
+                  <Chip key={departmentName} label={departmentName} className={styles.importSkippedDepartmentChip} />
+                ))}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions className={styles.importResultDialogActions}>
+          <Button className={styles.importResultCloseButton} variant="contained" onClick={() => setImportResultDialog((prev) => ({ ...prev, open: false }))}>
+            ตกลง
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <SubjectReviewDialog
         open={isSubjectReviewDialogOpen}
         onClose={handleCloseSubjectReviewDialog}
@@ -764,6 +1000,8 @@ function AddSubjectPage() {
         subjectCategoryOptions={subjectCategoryOptions}
         onEditSubject={handleEditSubject}
         onDeleteSubject={handleDeleteSubject}
+        onDeleteAllSubjects={handleDeleteAllSubjects}
+        onBulkDeleteSubjects={handleBulkDeleteSubjects}
       />
     </Box>
   )

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogContent,
@@ -90,6 +91,10 @@ function getSubjectBucket(subject) {
   return ''
 }
 
+function getSubjectSelectionId(subject) {
+  return String(subject?.id || subject?.courseId || subject?.course_id || subject?.courseCode || '')
+}
+
 function SubjectReviewDialog({
   open,
   onClose,
@@ -101,14 +106,18 @@ function SubjectReviewDialog({
   subjectCategoryOptions,
   onEditSubject,
   onDeleteSubject,
+  onBulkDeleteSubjects,
 }) {
   const [reviewTab, setReviewTab] = useState('overview')
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState([])
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   useEffect(() => {
     if (open) {
       setReviewTab('overview')
       setSearchKeyword('')
+      setSelectedSubjectIds([])
     }
   }, [open])
 
@@ -129,6 +138,103 @@ function SubjectReviewDialog({
       return courseCode.includes(normalizedKeyword) || courseNameThai.includes(normalizedKeyword) || courseNameEnglish.includes(normalizedKeyword)
     })
   }, [searchKeyword, safeSubjectList])
+
+  const selectedSubjectIdSet = useMemo(() => {
+    return new Set(selectedSubjectIds)
+  }, [selectedSubjectIds])
+
+  const selectedSubjectList = useMemo(() => {
+    return safeSubjectList.filter((subject) => selectedSubjectIdSet.has(getSubjectSelectionId(subject)))
+  }, [safeSubjectList, selectedSubjectIdSet])
+
+  const filteredSubjectIds = useMemo(() => {
+    return filteredSubjectList.map((subject) => getSubjectSelectionId(subject)).filter(Boolean)
+  }, [filteredSubjectList])
+
+  const isAllFilteredSelected = filteredSubjectIds.length > 0 && filteredSubjectIds.every((subjectId) => selectedSubjectIdSet.has(subjectId))
+
+  useEffect(() => {
+    const existingSubjectIdSet = new Set(safeSubjectList.map((subject) => getSubjectSelectionId(subject)).filter(Boolean))
+    setSelectedSubjectIds((prev) => prev.filter((subjectId) => existingSubjectIdSet.has(subjectId)))
+  }, [safeSubjectList])
+
+  const handleToggleSubject = (subject) => {
+    const subjectId = getSubjectSelectionId(subject)
+    if (!subjectId) return
+
+    setSelectedSubjectIds((prev) => {
+      if (prev.includes(subjectId)) {
+        return prev.filter((item) => item !== subjectId)
+      }
+
+      return [...prev, subjectId]
+    })
+  }
+
+  const handleToggleSelectAllFiltered = () => {
+    if (filteredSubjectIds.length === 0) return
+
+    setSelectedSubjectIds((prev) => {
+      if (isAllFilteredSelected) {
+        return prev.filter((subjectId) => !filteredSubjectIds.includes(subjectId))
+      }
+
+      return Array.from(new Set([...prev, ...filteredSubjectIds]))
+    })
+  }
+
+  const handleClearSelectedSubjects = () => {
+    setSelectedSubjectIds([])
+  }
+
+  const handleDeleteSelectedSubjects = async () => {
+    if (selectedSubjectList.length === 0) {
+      window.alert('กรุณาเลือกรายวิชาที่ต้องการลบก่อน')
+      return
+    }
+
+    try {
+      setIsBulkDeleting(true)
+
+      if (typeof onBulkDeleteSubjects === 'function') {
+        const isDeleted = await onBulkDeleteSubjects(selectedSubjectList)
+
+        if (isDeleted !== false) {
+          setSelectedSubjectIds([])
+        }
+
+        return
+      }
+
+      if (selectedSubjectList.length === 1) {
+        const subject = selectedSubjectList[0]
+        await onDeleteSubject(subject.id, subject.courseNameThai || subject.courseCode || 'รายวิชา')
+        setSelectedSubjectIds([])
+        return
+      }
+
+      const isConfirmed = window.confirm(`ต้องการลบรายวิชาที่เลือกทั้งหมด ${selectedSubjectList.length} รายวิชาใช่หรือไม่`)
+      if (!isConfirmed) return
+
+      const originalConfirm = window.confirm
+      window.confirm = () => true
+
+      try {
+        for (const subject of selectedSubjectList) {
+          await onDeleteSubject(subject.id, subject.courseNameThai || subject.courseCode || 'รายวิชา')
+        }
+
+        setSelectedSubjectIds([])
+      } finally {
+        window.confirm = originalConfirm
+      }
+    } catch (error) {
+      console.error('Error deleting selected subjects:', error)
+      window.alert('ไม่สามารถลบรายวิชาที่เลือกได้ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
 
   const overviewSectionList = useMemo(() => {
     return overviewConfig.map((section) => {
@@ -260,6 +366,51 @@ function SubjectReviewDialog({
               />
             </Box>
 
+            <Box className={styles.bulkActionPanel}>
+              <Box className={styles.bulkActionInfo}>
+                <Typography className={styles.bulkActionTitle}>จัดการรายวิชาที่เลือก</Typography>
+                <Typography className={styles.bulkActionHint}>
+                  เลือกจาก checkbox หน้ารายวิชา หรือกดเลือกทั้งหมดจากรายการที่แสดงอยู่ตอนนี้
+                </Typography>
+              </Box>
+
+              <Box className={styles.bulkButtonGroup}>
+                <Box className={styles.selectedCountBadge}>
+                  เลือกแล้ว {selectedSubjectList.length} รายการ
+                </Box>
+
+                <Button
+                  variant="outlined"
+                  className={styles.selectAllButton}
+                  onClick={handleToggleSelectAllFiltered}
+                  disabled={filteredSubjectIds.length === 0 || isBulkDeleting}
+                >
+                  {isAllFilteredSelected ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด'}
+                </Button>
+
+                {selectedSubjectList.length > 0 && (
+                  <Button
+                    variant="outlined"
+                    className={styles.clearSelectionButton}
+                    disabled={isBulkDeleting}
+                    onClick={handleClearSelectedSubjects}
+                  >
+                    ล้างที่เลือก
+                  </Button>
+                )}
+
+                <Button
+                  variant="contained"
+                  className={styles.deleteSelectedButton}
+                  startIcon={<DeleteOutlineRoundedIcon />}
+                  disabled={selectedSubjectList.length === 0 || isBulkDeleting}
+                  onClick={handleDeleteSelectedSubjects}
+                >
+                  {isBulkDeleting ? 'กำลังลบ...' : `ลบที่เลือก (${selectedSubjectList.length})`}
+                </Button>
+              </Box>
+            </Box>
+
             {filteredSubjectList.length === 0 ? (
               <Box className={styles.emptySubjectState}>
                 <Typography className={styles.emptySubjectTitle}>ยังไม่พบรายวิชาที่ค้นหา</Typography>
@@ -267,43 +418,55 @@ function SubjectReviewDialog({
               </Box>
             ) : (
               <Box className={styles.subjectList}>
-                {filteredSubjectList.map((subject) => (
-                  <Box key={subject.id || subject.courseCode} className={styles.subjectItemCard}>
-                    <Box className={styles.subjectItemTop}>
-                      <Box className={styles.subjectMetaGroup}>
-                        <Chip label={subject.courseCode || '-'} className={styles.subjectCodeChip} />
-                        <Chip label={getCurriculumLevelLabel(curriculumLevelOptions, subject.curriculumLevel)} variant="outlined" className={styles.subjectLevelChip} />
+                {filteredSubjectList.map((subject) => {
+                  const subjectSelectionId = getSubjectSelectionId(subject)
+                  const isSelected = selectedSubjectIdSet.has(subjectSelectionId)
+
+                  return (
+                    <Box key={subject.id || subject.courseCode} className={`${styles.subjectItemCard} ${isSelected ? styles.subjectItemCardSelected : ''}`}>
+                      <Box className={styles.subjectItemTop}>
+                        <Box className={styles.subjectMetaGroup}>
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => handleToggleSubject(subject)}
+                            disabled={!subjectSelectionId || isBulkDeleting}
+                            className={styles.subjectSelectCheckbox}
+                          />
+
+                          <Chip label={subject.courseCode || '-'} className={styles.subjectCodeChip} />
+                          <Chip label={getCurriculumLevelLabel(curriculumLevelOptions, subject.curriculumLevel)} variant="outlined" className={styles.subjectLevelChip} />
+                        </Box>
+
+                        <Box className={styles.subjectActionGroup}>
+                          <IconButton className={styles.subjectActionButton} onClick={() => onEditSubject(subject)} disabled={isBulkDeleting}>
+                            <EditRoundedIcon />
+                          </IconButton>
+
+                          <IconButton className={styles.subjectActionButton} onClick={() => onDeleteSubject(subject.id, subject.courseNameThai)} disabled={isBulkDeleting}>
+                            <DeleteOutlineRoundedIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
 
-                      <Box className={styles.subjectActionGroup}>
-                        <IconButton className={styles.subjectActionButton} onClick={() => onEditSubject(subject)}>
-                          <EditRoundedIcon />
-                        </IconButton>
+                      <Typography className={styles.subjectItemNameThai}>{subject.courseNameThai || '-'}</Typography>
+                      <Typography className={styles.subjectItemNameEnglish}>{subject.courseNameEnglish || '-'}</Typography>
 
-                        <IconButton className={styles.subjectActionButton} onClick={() => onDeleteSubject(subject.id, subject.courseNameThai)}>
-                          <DeleteOutlineRoundedIcon />
-                        </IconButton>
+                      <Box className={styles.subjectInfoRow}>
+                        <Typography className={styles.subjectInfoText}>
+                          หมวดวิชา: {getSubjectCategoryLabel(subjectCategoryOptions, subject.subjectCategory)}
+                        </Typography>
+
+                        <Typography className={styles.subjectInfoText}>
+                          กลุ่มย่อย: {subject.subCategory || '-'}
+                        </Typography>
+
+                        <Typography className={styles.subjectInfoText}>
+                          หน่วยกิต: {`${subject.totalCredits}(${subject.lectureHours}-${subject.labHours}-${subject.selfStudyHours})`}
+                        </Typography>
                       </Box>
                     </Box>
-
-                    <Typography className={styles.subjectItemNameThai}>{subject.courseNameThai || '-'}</Typography>
-                    <Typography className={styles.subjectItemNameEnglish}>{subject.courseNameEnglish || '-'}</Typography>
-
-                    <Box className={styles.subjectInfoRow}>
-                      <Typography className={styles.subjectInfoText}>
-                        หมวดวิชา: {getSubjectCategoryLabel(subjectCategoryOptions, subject.subjectCategory)}
-                      </Typography>
-
-                      <Typography className={styles.subjectInfoText}>
-                        กลุ่มย่อย: {subject.subCategory || '-'}
-                      </Typography>
-
-                      <Typography className={styles.subjectInfoText}>
-                        หน่วยกิต: {`${subject.totalCredits}(${subject.lectureHours}-${subject.labHours}-${subject.selfStudyHours})`}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
+                  )
+                })}
               </Box>
             )}
           </Box>
