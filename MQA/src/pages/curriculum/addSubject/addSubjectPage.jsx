@@ -21,7 +21,9 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded'
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded'
 import styles from './addSubjectPage.module.css'
 import SubjectReviewDialog from './subjectReviewDialog'
 
@@ -48,8 +50,6 @@ const subjectCategoryValueMap = {
   2: 'specific',
   3: 'freeElective',
 }
-
-const FREE_ELECTIVE_DEPARTMENT_ID = '15'
 
 const studyLineOptions = [
   'สายวิทยาศาสตร์',
@@ -132,15 +132,6 @@ const getSubjectDisplayText = (subject) => {
   return `${courseCode} ${courseNameThai}`
 }
 
-const getCourseCode = (course) => {
-  return course.course_code || course.courseCode || course.code || ''
-}
-
-const isCourseCode15 = (courseCode) => {
-  const cleanCode = String(courseCode || '').trim().replace(/\s+/g, '').replace(/–/g, '-')
-  return cleanCode.startsWith('15')
-}
-
 const mapSubGroupFromApi = (subGroup) => ({
   id: String(subGroup.id ?? subGroup.sub_group_id ?? subGroup.subGroupId ?? ''),
   name: subGroup.name || subGroup.sub_group_name || subGroup.subGroupName || '-',
@@ -156,7 +147,7 @@ const mapCourseFromApi = (course, subGroupOptions) => {
   return {
     id: getCourseId(course),
     departmentId: getDepartmentId(course),
-    courseCode: getCourseCode(course),
+    courseCode: course.course_code || course.courseCode || '',
     curriculumLevel: normalizeDegree(course.course_level || course.courseLevel),
     courseNameThai: course.course_name_th || course.courseNameTh || '',
     courseNameEnglish: course.course_name_en || course.courseNameEn || '',
@@ -219,7 +210,6 @@ function AddSubjectPage() {
     selectedMajor?.departmentId ||
     selectedMajor?.id ||
     null
-  const isFreeElectiveDepartment = String(selectedDepartmentId || '') === FREE_ELECTIVE_DEPARTMENT_ID
 
   const [formValue, setFormValue] = useState(initialFormValue)
   const [popup, setPopup] = useState({ open: false, field: '', title: '', value: '' })
@@ -230,11 +220,11 @@ function AddSubjectPage() {
   const [isSubjectReviewDialogOpen, setIsSubjectReviewDialogOpen] = useState(false)
   const [isCourseLoading, setIsCourseLoading] = useState(false)
   const [isSavingSubject, setIsSavingSubject] = useState(false)
+  const [importingSubjectMode, setImportingSubjectMode] = useState('')
+  const [importStatusMessage, setImportStatusMessage] = useState('')
+  const [importStatusType, setImportStatusType] = useState('info')
+  const [importResultDialog, setImportResultDialog] = useState({ open: false, title: '', message: '', type: 'info', skippedDepartments: [] })
   const [courseErrorMessage, setCourseErrorMessage] = useState('')
-  const [wordFiles, setWordFiles] = useState([])
-  const [isImportingWord, setIsImportingWord] = useState(false)
-  const [importWordMessage, setImportWordMessage] = useState('')
-  const [importWordError, setImportWordError] = useState('')
 
   const fetchSubjectData = useCallback(async () => {
     try {
@@ -282,11 +272,7 @@ function AddSubjectPage() {
         ? detailList.filter((course) => String(getDepartmentId(course)) === selectedDepartmentIdText)
         : detailList
 
-      const courseListByDepartmentMode = courseListInSelectedDepartment.filter((course) => {
-        const courseIsCode15 = isCourseCode15(getCourseCode(course))
-        return isFreeElectiveDepartment ? courseIsCode15 : !courseIsCode15
-      })
-      const mappedSubjectList = courseListByDepartmentMode.map((course) => mapCourseFromApi(course, mappedSubGroupOptions))
+      const mappedSubjectList = courseListInSelectedDepartment.map((course) => mapCourseFromApi(course, mappedSubGroupOptions))
 
       setSubjectList(mappedSubjectList)
     } catch (error) {
@@ -295,7 +281,7 @@ function AddSubjectPage() {
     } finally {
       setIsCourseLoading(false)
     }
-  }, [apiUrl, selectedDepartmentId, isFreeElectiveDepartment])
+  }, [apiUrl, selectedDepartmentId])
 
   useEffect(() => {
     fetchSubjectData()
@@ -416,110 +402,75 @@ function AddSubjectPage() {
 
   const handleCloseSubjectReviewDialog = () => setIsSubjectReviewDialogOpen(false)
 
-  const handleWordFilesChange = (event) => {
+  const handleImportWordSubjects = async (event, mode) => {
     const selectedFiles = Array.from(event.target.files || [])
+    event.target.value = ''
 
-    setImportWordMessage('')
-    setImportWordError('')
+    if (selectedFiles.length === 0) return
 
-    if (selectedFiles.length > 2) {
-      setWordFiles([])
-      event.target.value = ''
-      setImportWordError('อัปโหลดได้สูงสุด 2 ไฟล์เท่านั้น')
-      return
-    }
-
-    const invalidFile = selectedFiles.find((file) => {
-      const lowerName = file.name.toLowerCase()
-      return !lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')
-    })
-
-    if (invalidFile) {
-      setWordFiles([])
-      event.target.value = ''
-      setImportWordError(`ไฟล์ ${invalidFile.name} ไม่ใช่ไฟล์ .doc หรือ .docx`)
-      return
-    }
-
-    const temporaryFile = selectedFiles.find((file) => file.name.startsWith('~$'))
-
-    if (temporaryFile) {
-      setWordFiles([])
-      event.target.value = ''
-      setImportWordError(`ไฟล์ ${temporaryFile.name} เป็นไฟล์ชั่วคราวของ Microsoft Word กรุณาเลือกไฟล์จริง`)
-      return
-    }
-
-    setWordFiles(selectedFiles)
-  }
-
-  const buildWordImportFormData = () => {
-    const formData = new FormData()
-
-    wordFiles.forEach((file) => {
-      formData.append('files', file)
-    })
-
-    formData.append('courseLevel', formValue.curriculumLevel || 'bachelor')
-
-    if (selectedDepartmentId) {
-      formData.append('departmentId', String(selectedDepartmentId))
-    }
-
-    return formData
-  }
-
-  const getWordImportEndpoint = () => {
-    return isFreeElectiveDepartment ? '/word-import/code-15' : '/word-import/courses'
-  }
-
-  const handleImportSubjectsFromWord = async () => {
     if (!selectedDepartmentId) {
-      setImportWordError('กรุณาเลือกสาขาจากหน้าจัดการสาขาก่อนนำเข้ารายวิชา')
+      setImportResultDialog({
+        open: true,
+        title: 'ยังไม่สามารถนำเข้าได้',
+        message: 'กรุณาเลือกสาขาจากหน้าจัดการสาขาก่อน',
+        type: 'error',
+        skippedDepartments: [],
+      })
       return
     }
 
-    if (wordFiles.length === 0) {
-      setImportWordError('กรุณาเลือกไฟล์ .doc หรือ .docx ก่อน')
-      return
-    }
+    const importModeLabel = mode === 'code15' ? 'วิชา 15' : 'วิชาทั่วไป'
+    const formData = new FormData()
+    selectedFiles.forEach((file) => formData.append('files', file))
+    formData.append('courseLevel', formValue.curriculumLevel || 'bachelor')
+    formData.append('departmentId', String(selectedDepartmentId))
 
-    const token = localStorage.getItem('mqa_token')
-
-    if (!token) {
-      setImportWordError('ไม่พบ token การเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่')
-      return
-    }
+    const importUrl = mode === 'code15'
+      ? `${apiUrl}/word-import/code-15`
+      : `${apiUrl}/word-import/courses`
 
     try {
-      setIsImportingWord(true)
-      setImportWordMessage('')
-      setImportWordError('')
-
+      setImportingSubjectMode(mode)
+      setImportStatusType('info')
+      setImportStatusMessage(`กำลังนำเข้า${importModeLabel}จากไฟล์ Word ${selectedFiles.length} ไฟล์...`)
       const config = getAuthConfig()
-      const endpoint = getWordImportEndpoint()
-      const formData = buildWordImportFormData()
-      const response = await axios.post(`${apiUrl}${endpoint}`, formData, config)
-      const importResult = response.data || {}
-
-      const createdCount = Number(importResult.createdCount || 0)
-      const skippedExistingCount = Number(importResult.skippedExistingCount || 0)
-      const skippedFilteredCount = Number(importResult.skippedFilteredCount || 0)
+      const response = await axios.post(importUrl, formData, config)
 
       await fetchSubjectData()
 
-      setImportWordMessage(
-        `นำเข้ารายวิชาจาก Word สำเร็จ เพิ่มใหม่ ${createdCount} รายวิชา` +
-        (skippedExistingCount > 0 ? `, ข้ามรายการที่มีอยู่แล้ว ${skippedExistingCount} รายวิชา` : '') +
-        (skippedFilteredCount > 0 ? (isFreeElectiveDepartment ? `, กรองรายวิชาที่ไม่ใช่รหัส 15 ออก ${skippedFilteredCount} รายวิชา` : `, กรองรายวิชารหัส 15 ออก ${skippedFilteredCount} รายวิชา`) : '')
-      )
+      const createdCount = response.data?.createdCount ?? 0
+      const skippedExistingCount = response.data?.skippedExistingCount ?? 0
+      const skippedFilteredCount = response.data?.skippedFilteredCount ?? 0
+      const skippedDepartmentNames = Array.from(new Set(
+        (response.data?.skippedSubjects || [])
+          .map((subject) => subject.departmentName)
+          .filter(Boolean)
+      ))
+      const successMessage = `นำเข้า${importModeLabel}สำเร็จ ${createdCount} รายการ | ข้ามวิชาที่มีอยู่แล้ว ${skippedExistingCount} รายการ | ข้ามรายการนอกประเภท ${skippedFilteredCount} รายการ`
 
-      setIsSubjectReviewDialogOpen(true)
+      setImportStatusType('success')
+      setImportStatusMessage(successMessage)
+      setImportResultDialog({
+        open: true,
+        title: 'นำเข้าสำเร็จ',
+        message: successMessage,
+        type: 'success',
+        skippedDepartments: skippedDepartmentNames,
+      })
     } catch (error) {
-      console.error('Error importing subjects from Word:', error)
-      setImportWordError(error.response?.data?.detail || error.message || 'นำเข้ารายวิชาจากไฟล์ Word ไม่สำเร็จ')
+      console.error('Error importing word subjects:', error)
+      const errorMessage = error.response?.data?.detail || 'ไม่สามารถนำเข้ารายวิชาจากไฟล์ Word ได้ กรุณาลองใหม่อีกครั้ง'
+      setImportStatusType('error')
+      setImportStatusMessage(errorMessage)
+      setImportResultDialog({
+        open: true,
+        title: 'นำเข้าไม่สำเร็จ',
+        message: errorMessage,
+        type: 'error',
+        skippedDepartments: [],
+      })
     } finally {
-      setIsImportingWord(false)
+      setImportingSubjectMode('')
     }
   }
 
@@ -552,18 +503,6 @@ function AddSubjectPage() {
 
     if (!normalizedCourseCode || !formValue.courseNameThai.trim()) {
       window.alert('กรุณากรอกรหัสวิชาและชื่อรายวิชาภาษาไทย')
-      return
-    }
-
-    const isInputCode15 = isCourseCode15(formValue.courseCode)
-
-    if (isFreeElectiveDepartment && !isInputCode15) {
-      window.alert('สาขาวิชาเลือกเสรีรหัส 15 สามารถเพิ่มได้เฉพาะรายวิชาที่รหัสขึ้นต้น 15 เท่านั้น')
-      return
-    }
-
-    if (!isFreeElectiveDepartment && isInputCode15) {
-      window.alert('สาขาปกติไม่สามารถเพิ่มรายวิชาที่รหัสขึ้นต้น 15 ได้ กรุณาเลือกสาขาวิชาเลือกเสรีรหัส 15 ก่อน')
       return
     }
 
@@ -642,56 +581,74 @@ function AddSubjectPage() {
   }
 
   const handleBulkDeleteSubjects = async (selectedSubjects = []) => {
-    const targetSubjects = Array.isArray(selectedSubjects)
+    const subjectListWithId = Array.isArray(selectedSubjects)
       ? selectedSubjects.filter((subject) => subject?.id)
       : []
 
-    if (targetSubjects.length === 0) {
-      window.alert('ไม่พบรายวิชาที่เลือกสำหรับลบ')
-      return
+    if (subjectListWithId.length === 0) {
+      window.alert('ยังไม่มีรายวิชาที่เลือกสำหรับลบ')
+      return false
     }
 
-    const config = getAuthConfig()
-    const failedSubjectList = []
-    const deletedSubjectIdSet = new Set()
+    const isConfirmed = window.confirm(`ต้องการลบรายวิชาที่เลือกทั้งหมด ${subjectListWithId.length} รายการใช่หรือไม่`)
+    if (!isConfirmed) return false
 
-    for (const subject of targetSubjects) {
-      try {
-        await axios.delete(`${apiUrl}/course/${subject.id}`, config)
-        deletedSubjectIdSet.add(String(subject.id))
-      } catch (error) {
-        console.error('Error bulk deleting subject:', subject, error)
-        failedSubjectList.push({
-          subject,
-          error,
-        })
+    try {
+      const config = getAuthConfig()
+      const failedSubjectList = []
+      const deletedSubjectIdSet = new Set()
+
+      for (const subject of subjectListWithId) {
+        try {
+          await axios.delete(`${apiUrl}/course/${subject.id}`, config)
+          deletedSubjectIdSet.add(String(subject.id))
+        } catch (error) {
+          console.error('Error deleting selected subject:', subject, error)
+          failedSubjectList.push(subject)
+        }
       }
+
+      await fetchSubjectData()
+
+      if (editingSubjectId && deletedSubjectIdSet.has(String(editingSubjectId))) {
+        resetForm()
+      }
+
+      if (failedSubjectList.length > 0) {
+        window.alert(`ลบบางรายการไม่สำเร็จ สำเร็จ ${subjectListWithId.length - failedSubjectList.length} รายการ ไม่สำเร็จ ${failedSubjectList.length} รายการ`)
+        return false
+      }
+
+      window.alert(`ลบรายวิชาที่เลือก ${subjectListWithId.length} รายการสำเร็จ`)
+      return true
+    } catch (error) {
+      console.error('Error deleting selected subjects:', error)
+      window.alert(error.response?.data?.detail || 'ไม่สามารถลบรายวิชาที่เลือกได้ กรุณาลองใหม่อีกครั้ง')
+      return false
     }
+  }
 
-    await fetchSubjectData()
+  const handleDeleteAllSubjects = async () => {
+    const subjectListWithId = subjectList.filter((subject) => subject.id)
 
-    if (editingSubjectId && deletedSubjectIdSet.has(String(editingSubjectId))) {
-      resetForm()
-    }
-
-    const deletedCount = targetSubjects.length - failedSubjectList.length
-
-    if (failedSubjectList.length > 0) {
-      const failedSubjectText = failedSubjectList
-        .slice(0, 5)
-        .map(({ subject }) => `${subject.courseCode || '-'} ${subject.courseNameThai || ''}`.trim())
-        .join('\n')
-
-      window.alert(
-        `ลบสำเร็จ ${deletedCount} รายวิชา แต่มี ${failedSubjectList.length} รายวิชาที่ลบไม่ได้` +
-        (failedSubjectText ? `\n\nรายการที่ลบไม่ได้:\n${failedSubjectText}` : '') +
-        (failedSubjectList.length > 5 ? `\nและรายการอื่น ๆ อีก ${failedSubjectList.length - 5} รายการ` : '')
-      )
-
+    if (subjectListWithId.length === 0) {
+      window.alert('ยังไม่มีรายวิชาสำหรับลบ')
       return
     }
 
-    window.alert(`ลบรายวิชาที่เลือกสำเร็จ ${deletedCount} รายวิชา`)
+    const isConfirmed = window.confirm(`ต้องการลบรายวิชาทั้งหมด ${subjectListWithId.length} รายการใช่หรือไม่`)
+    if (!isConfirmed) return
+
+    try {
+      const config = getAuthConfig()
+      await Promise.all(subjectListWithId.map((subject) => axios.delete(`${apiUrl}/course/${subject.id}`, config)))
+      await fetchSubjectData()
+      resetForm()
+      window.alert(`ลบรายวิชาทั้งหมด ${subjectListWithId.length} รายการสำเร็จ`)
+    } catch (error) {
+      console.error('Error deleting all subjects:', error)
+      window.alert(error.response?.data?.detail || 'ไม่สามารถลบรายวิชาทั้งหมดได้ กรุณาลองใหม่อีกครั้ง')
+    }
   }
 
   const renderPopupField = (label, fieldName, minRows = 5) => (
@@ -733,6 +690,40 @@ function AddSubjectPage() {
             </Box>
 
             <Box className={styles.headerActionGroup}>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadRoundedIcon />}
+                className={styles.topImportButton}
+                disabled={Boolean(importingSubjectMode)}
+              >
+                นำเข้าวิชาทั่วไป
+                <input
+                  hidden
+                  multiple
+                  type="file"
+                  accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(event) => handleImportWordSubjects(event, 'courses')}
+                />
+              </Button>
+
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadRoundedIcon />}
+                className={styles.topImportButton}
+                disabled={Boolean(importingSubjectMode)}
+              >
+                นำเข้าวิชาเสรี
+                <input
+                  hidden
+                  multiple
+                  type="file"
+                  accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(event) => handleImportWordSubjects(event, 'code15')}
+                />
+              </Button>
+
               <Button variant="outlined" startIcon={<AssessmentRoundedIcon />} className={styles.topReviewButton} onClick={handleOpenSubjectReviewDialog}>ตรวจสอบรายวิชา</Button>
             </Box>
           </Box>
@@ -747,57 +738,13 @@ function AddSubjectPage() {
 
             <Typography className={styles.infoTitle}>หน้านี้ใช้สำหรับเพิ่มและแก้ไขรายวิชา</Typography>
             <Typography className={styles.infoDescription}>ใช้ฟอร์มนี้ในการเพิ่มรายวิชาใหม่ และสามารถกดปุ่มตรวจสอบรายวิชาเพื่อดูภาพรวมหน่วยกิต ค้นหา แก้ไข หรือลบรายวิชาที่มีอยู่แล้วได้</Typography>
-            <Typography className={styles.infoDescription}>
-              {isFreeElectiveDepartment ? 'โหมดสาขาวิชาเลือกเสรีรหัส 15: ระบบจะบันทึกและแสดงเฉพาะรายวิชาที่รหัสขึ้นต้น 15 เท่านั้น' : 'โหมดสาขาปกติ: ระบบจะบันทึกและแสดงรายวิชาของสาขานี้ โดยไม่รวมรายวิชาที่รหัสขึ้นต้น 15'}
-            </Typography>
             {isCourseLoading && <Typography className={styles.infoDescription}>กำลังโหลดข้อมูลรายวิชา...</Typography>}
+            {importStatusMessage && (
+              <Box className={`${styles.importStatus} ${importStatusType === 'success' ? styles.importStatusSuccess : importStatusType === 'error' ? styles.importStatusError : styles.importStatusInfo}`}>
+                <Typography className={styles.importStatusText}>{importStatusMessage}</Typography>
+              </Box>
+            )}
             {courseErrorMessage && <Typography className={styles.infoDescription}>{courseErrorMessage}</Typography>}
-          </Box>
-
-          <Box className={styles.sectionCard}>
-            <Box className={styles.sectionHeader}>
-              <Typography className={styles.sectionTitle}>อัปโหลดไฟล์ Word เพื่อนำเข้ารายวิชา</Typography>
-              <Typography className={styles.sectionHint}>
-                {isFreeElectiveDepartment ? 'รองรับไฟล์ .doc และ .docx สูงสุด 2 ไฟล์ ระบบจะนำเข้าเฉพาะรายวิชาที่รหัสขึ้นต้น 15 เข้าสู่สาขาวิชาเลือกเสรีรหัส 15' : 'รองรับไฟล์ .doc และ .docx สูงสุด 2 ไฟล์ ระบบจะนำเข้ารายวิชาของสาขานี้และกรองรายวิชาที่รหัสขึ้นต้น 15 ออก'}
-              </Typography>
-            </Box>
-
-            <Box className={styles.formGridTwo}>
-              <Button component="label" variant="outlined" startIcon={<UploadFileRoundedIcon />} className={styles.backButton}>
-                เลือกไฟล์ Word
-                <input type="file" accept=".doc,.docx" multiple hidden onChange={handleWordFilesChange} />
-              </Button>
-
-              <TextField
-                label="ไฟล์ที่เลือก"
-                value={wordFiles.map((file) => file.name).join(', ')}
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-            </Box>
-
-            <Box className={styles.actionButtonGroup}>
-              <Button
-                variant="contained"
-                className={styles.saveButton}
-                onClick={handleImportSubjectsFromWord}
-                disabled={isImportingWord || wordFiles.length === 0}
-              >
-                {isImportingWord ? 'กำลังนำเข้า...' : 'นำเข้ารายวิชา'}
-              </Button>
-            </Box>
-
-            {importWordError && (
-              <Typography sx={{ color: '#dc2626', fontWeight: 700 }}>
-                {importWordError}
-              </Typography>
-            )}
-
-            {importWordMessage && (
-              <Typography sx={{ color: '#15803d', fontWeight: 700 }}>
-                {importWordMessage}
-              </Typography>
-            )}
           </Box>
 
           <Box className={styles.sectionCard}>
@@ -995,6 +942,53 @@ function AddSubjectPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={importResultDialog.open}
+        onClose={() => setImportResultDialog((prev) => ({ ...prev, open: false }))}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ className: styles.importResultDialogPaper }}
+      >
+        <DialogTitle className={styles.importResultDialogTitle}>
+          <Box className={`${styles.importResultHero} ${importResultDialog.type === 'success' ? styles.importResultHeroSuccess : styles.importResultHeroError}`}>
+            <Box className={styles.importResultIconWrap}>
+              {importResultDialog.type === 'success' ? <CheckCircleRoundedIcon /> : <ErrorOutlineRoundedIcon />}
+            </Box>
+
+            <Box>
+              <Typography className={styles.importResultTitleText}>{importResultDialog.title}</Typography>
+              <Typography className={styles.importResultSubtitle}>
+                {importResultDialog.type === 'success' ? 'ระบบบันทึกรายวิชาและอัปเดตรายการล่าสุดแล้ว' : 'ตรวจสอบไฟล์หรือข้อมูลสาขา แล้วลองนำเข้าอีกครั้ง'}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent className={styles.importResultDialogContent}>
+          <Box className={styles.importResultMessageBox}>
+            <Typography className={styles.importResultMessage}>{importResultDialog.message}</Typography>
+          </Box>
+
+          {importResultDialog.skippedDepartments.length > 0 && (
+            <Box className={styles.importSkippedDepartmentBox}>
+              <Typography className={styles.importSkippedDepartmentTitle}>มีข้อมูลเอกสารนี้อยู่แล้วในสาขาวิชา</Typography>
+
+              <Box className={styles.importSkippedDepartmentList}>
+                {importResultDialog.skippedDepartments.map((departmentName) => (
+                  <Chip key={departmentName} label={departmentName} className={styles.importSkippedDepartmentChip} />
+                ))}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions className={styles.importResultDialogActions}>
+          <Button className={styles.importResultCloseButton} variant="contained" onClick={() => setImportResultDialog((prev) => ({ ...prev, open: false }))}>
+            ตกลง
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <SubjectReviewDialog
         open={isSubjectReviewDialogOpen}
         onClose={handleCloseSubjectReviewDialog}
@@ -1006,6 +1000,7 @@ function AddSubjectPage() {
         subjectCategoryOptions={subjectCategoryOptions}
         onEditSubject={handleEditSubject}
         onDeleteSubject={handleDeleteSubject}
+        onDeleteAllSubjects={handleDeleteAllSubjects}
         onBulkDeleteSubjects={handleBulkDeleteSubjects}
       />
     </Box>

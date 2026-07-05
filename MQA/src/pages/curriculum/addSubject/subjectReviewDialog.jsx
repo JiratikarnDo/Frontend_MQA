@@ -21,325 +21,70 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import styles from './subjectReviewDialog.module.css'
 
-const generalEducationRows = [
+const overviewConfig = [
   {
-    label: 'กลุ่มสาระวิชาอัตลักษณ์',
-    bucket: 'ge:กลุ่มสาระวิชาอัตลักษณ์',
-    minimum: 3,
+    title: '1) หมวดวิชาศึกษาทั่วไป',
+    firstColumnLabel: 'กลุ่ม',
+    totalLabel: 'รวมหมวดศึกษาทั่วไป',
+    rows: [
+      { label: 'กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', bucket: 'ge:กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', minimum: 6 },
+      { label: 'กลุ่มวิชาภาษา', bucket: 'ge:กลุ่มวิชาภาษา', minimum: 12 },
+      { label: 'กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', bucket: 'ge:กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์', minimum: 6 },
+      { label: 'กลุ่มบูรณาการ', bucket: 'ge:กลุ่มบูรณาการ', minimum: 6 },
+    ],
   },
   {
-    label: 'กลุ่มสาระวิชาคุณภาพชีวิต',
-    bucket: 'ge:กลุ่มสาระวิชาคุณภาพชีวิต',
-    minimum: 3,
+    title: '2) หมวดวิชาเฉพาะ',
+    firstColumnLabel: 'กลุ่ม',
+    totalLabel: 'รวมหมวดวิชาเฉพาะ',
+    rows: [
+      { label: 'กลุ่มวิชาแกน', bucket: 'specific:กลุ่มวิชาแกน', minimum: 15 },
+      { label: 'กลุ่มวิชาเฉพาะด้าน', bucket: 'specific:กลุ่มวิชาเฉพาะด้าน', minimum: 52 },
+      { label: 'กลุ่มวิชาเลือก', bucket: 'specific:กลุ่มวิชาเลือก', minimum: 12 },
+      { label: 'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', bucket: 'specific:กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์', minimum: 6 },
+      { label: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', bucket: 'specific:กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ', minimum: 7 },
+    ],
   },
   {
-    label: 'กลุ่มสาระวิชาคุณภาพการทำงาน',
-    bucket: 'ge:กลุ่มสาระวิชาคุณภาพการทำงาน',
-    minimum: 6,
-  },
-  {
-    label: 'กลุ่มสาระวิชาภาษาและการสื่อสาร',
-    bucket: 'ge:กลุ่มสาระวิชาภาษาและการสื่อสาร',
-    minimum: 6,
-  },
-  {
-    label: 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
-    bucket: 'ge:กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
-    minimum: 3,
-  },
-  {
-    label: 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
-    bucket: 'ge:กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
-    minimum: 3,
-  },
-]
-
-const specificRows = [
-  {
-    label: 'กลุ่มวิชาแกน',
-    bucket: 'specific:กลุ่มวิชาแกน',
-    minimum: 24,
-  },
-  {
-    label: 'กลุ่มวิชาบังคับ',
-    bucket: 'specific:กลุ่มวิชาบังคับ',
-    minimum: 38,
-  },
-  {
-    label: 'กลุ่มวิชาเลือก',
-    bucket: 'specific:กลุ่มวิชาเลือก',
-    minimum: 21,
-  },
-  {
-    label: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-    bucket: 'specific:กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-    minimum: 7,
+    title: '3) หมวดวิชาเลือกเสรี',
+    firstColumnLabel: 'หมวด',
+    totalLabel: 'รวมหมวดวิชาเลือกเสรี',
+    rows: [
+      { label: 'วิชาเลือกเสรี', bucket: 'freeElective:วิชาเลือกเสรี', minimum: 6 },
+    ],
   },
 ]
-
-const freeElectiveRows = [
-  {
-    label: 'วิชาเลือกเสรี',
-    bucket: 'freeElective:วิชาเลือกเสรี',
-    minimum: 6,
-  },
-]
-
-const overviewConfigByLevel = {
-  bachelor: [
-    {
-      title: '1) หมวดวิชาศึกษาทั่วไป',
-      firstColumnLabel: 'กลุ่ม',
-      totalLabel: 'รวมหมวดศึกษาทั่วไป',
-      rows: generalEducationRows,
-    },
-    {
-      title: '2) หมวดวิชาเฉพาะ',
-      firstColumnLabel: 'กลุ่ม',
-      totalLabel: 'รวมหมวดวิชาเฉพาะ',
-      rows: specificRows,
-    },
-    {
-      title: '3) หมวดวิชาเลือกเสรี',
-      firstColumnLabel: 'หมวด',
-      totalLabel: 'รวมหมวดวิชาเลือกเสรี',
-      rows: freeElectiveRows,
-    },
-  ],
-  master: [
-    {
-      title: '1) หมวดวิชาศึกษาทั่วไป',
-      firstColumnLabel: 'กลุ่ม',
-      totalLabel: 'รวมหมวดศึกษาทั่วไป',
-      rows: generalEducationRows,
-    },
-    {
-      title: '2) หมวดวิชาเฉพาะ',
-      firstColumnLabel: 'กลุ่ม',
-      totalLabel: 'รวมหมวดวิชาเฉพาะ',
-      rows: specificRows,
-    },
-    {
-      title: '3) หมวดวิชาเลือกเสรี',
-      firstColumnLabel: 'หมวด',
-      totalLabel: 'รวมหมวดวิชาเลือกเสรี',
-      rows: freeElectiveRows,
-    },
-  ],
-  doctorate: [
-    {
-      title: '1) หมวดวิชาศึกษาทั่วไป',
-      firstColumnLabel: 'กลุ่ม',
-      totalLabel: 'รวมหมวดศึกษาทั่วไป',
-      rows: generalEducationRows,
-    },
-    {
-      title: '2) หมวดวิชาเฉพาะ',
-      firstColumnLabel: 'กลุ่ม',
-      totalLabel: 'รวมหมวดวิชาเฉพาะ',
-      rows: specificRows,
-    },
-    {
-      title: '3) หมวดวิชาเลือกเสรี',
-      firstColumnLabel: 'หมวด',
-      totalLabel: 'รวมหมวดวิชาเลือกเสรี',
-      rows: freeElectiveRows,
-    },
-  ],
-}
-
-const categoryAliasMap = {
-  general: 'generalEducation',
-  generaleducation: 'generalEducation',
-  general_education: 'generalEducation',
-  ge: 'generalEducation',
-  วิชาศึกษาทั่วไป: 'generalEducation',
-  หมวดวิชาศึกษาทั่วไป: 'generalEducation',
-  หมวดรายวิชาศึกษาทั่วไป: 'generalEducation',
-
-  specific: 'specific',
-  วิชาเฉพาะ: 'specific',
-  หมวดวิชาเฉพาะ: 'specific',
-
-  free: 'freeElective',
-  freeelective: 'freeElective',
-  free_elective: 'freeElective',
-  วิชาเลือกเสรี: 'freeElective',
-  หมวดวิชาเลือกเสรี: 'freeElective',
-  หมวดเลือกเสรี: 'freeElective',
-}
-
-const exactSubCategoryAliasMap = {
-  กลุ่มสาระวิชาอัตลักษณ์: 'กลุ่มสาระวิชาอัตลักษณ์',
-  กลุ่มสาระวิชาคุณภาพชีวิต: 'กลุ่มสาระวิชาคุณภาพชีวิต',
-  กลุ่มสาระวิชาคุณภาพการทำงาน: 'กลุ่มสาระวิชาคุณภาพการทำงาน',
-  กลุ่มสาระวิชาคุณภาพการทํางาน: 'กลุ่มสาระวิชาคุณภาพการทำงาน',
-  กลุ่มสาระวิชาภาษาและการสื่อสาร: 'กลุ่มสาระวิชาภาษาและการสื่อสาร',
-  กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต: 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
-  กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก: 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
-
-  กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์: 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก',
-  กลุ่มวิชาภาษา: 'กลุ่มสาระวิชาภาษาและการสื่อสาร',
-  กลุ่มวิชาวิทยาศาสตร์กับคณิตศาสตร์: 'กลุ่มสาระวิชาคุณภาพชีวิต',
-  กลุ่มบูรณาการ: 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต',
-
-  กลุ่มวิชาแกน: 'กลุ่มวิชาแกน',
-  กลุ่มวิชาบังคับ: 'กลุ่มวิชาบังคับ',
-  กลุ่มวิชาเฉพาะด้าน: 'กลุ่มวิชาบังคับ',
-  กลุ่มวิชาเลือก: 'กลุ่มวิชาเลือก',
-  กลุ่มวิชาการพัฒนาซอฟต์แวร์: 'กลุ่มวิชาเลือก',
-  กลุ่มการพัฒนาซอฟต์แวร์: 'กลุ่มวิชาเลือก',
-  กลุ่มวิทยาการข้อมูล: 'กลุ่มวิชาเลือก',
-  กลุ่มปัญญาประดิษฐ์และระบบอัตโนมัติ: 'กลุ่มวิชาเลือก',
-  กลุ่มโครงสร้างพื้นฐานทางเทคโนโลยีสารสนเทศ: 'กลุ่มวิชาเลือก',
-  กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-  กลุ่มวิชาเสริมสร้างประสบการณ์: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-  กลุ่มวิชาเสริมสร้างประสบการณ์ทางวิทยาการคอมพิวเตอร์: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-  กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ: 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
-
-  วิชาเลือกเสรี: 'วิชาเลือกเสรี',
-  หมวดวิชาเลือกเสรี: 'วิชาเลือกเสรี',
-  หมวดเลือกเสรี: 'วิชาเลือกเสรี',
-}
-
-function normalizeTextValue(value) {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .replace(/ทํางาน/g, 'ทำงาน')
-    .trim()
-}
-
-function normalizeCurriculumLevel(value) {
-  const cleanValue = normalizeTextValue(value).toLowerCase()
-
-  if (cleanValue === 'bachelor' || cleanValue === 'ปริญญาตรี' || cleanValue.includes('ตรี')) {
-    return 'bachelor'
-  }
-
-  if (cleanValue === 'master' || cleanValue === 'ปริญญาโท' || cleanValue.includes('โท')) {
-    return 'master'
-  }
-
-  if (
-    cleanValue === 'doctorate' ||
-    cleanValue === 'doctoral' ||
-    cleanValue === 'doctor' ||
-    cleanValue === 'phd' ||
-    cleanValue === 'ปริญญาเอก' ||
-    cleanValue.includes('เอก')
-  ) {
-    return 'doctorate'
-  }
-
-  return cleanValue
-}
-
-function normalizeSubjectCategory(value, courseCode = '') {
-  const cleanValue = normalizeTextValue(value)
-  const compactValue = cleanValue.replace(/\s+/g, '').toLowerCase()
-
-  if (categoryAliasMap[compactValue]) {
-    return categoryAliasMap[compactValue]
-  }
-
-  if (categoryAliasMap[cleanValue]) {
-    return categoryAliasMap[cleanValue]
-  }
-
-  const cleanCourseCode = String(courseCode || '').trim()
-
-  if (cleanCourseCode.startsWith('15-')) return 'generalEducation'
-  if (cleanCourseCode.toLowerCase().startsWith('xx-')) return 'freeElective'
-  if (cleanCourseCode.startsWith('04-')) return 'specific'
-
-  return cleanValue || ''
-}
-
-function normalizeSubCategory(value, subjectCategory = '', courseCode = '') {
-  const cleanValue = normalizeTextValue(value)
-
-  if (exactSubCategoryAliasMap[cleanValue]) {
-    return exactSubCategoryAliasMap[cleanValue]
-  }
-
-  if (cleanValue.includes('กลุ่มสาระวิชาอัตลักษณ์')) return 'กลุ่มสาระวิชาอัตลักษณ์'
-  if (cleanValue.includes('กลุ่มสาระวิชาคุณภาพชีวิต')) return 'กลุ่มสาระวิชาคุณภาพชีวิต'
-  if (cleanValue.includes('กลุ่มสาระวิชาคุณภาพการทำงาน') || cleanValue.includes('กลุ่มสาระวิชาคุณภาพการทํางาน')) return 'กลุ่มสาระวิชาคุณภาพการทำงาน'
-  if (cleanValue.includes('กลุ่มสาระวิชาภาษาและการสื่อสาร')) return 'กลุ่มสาระวิชาภาษาและการสื่อสาร'
-  if (cleanValue.includes('กลุ่มสาระวิชาการปรับตัว')) return 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต'
-  if (cleanValue.includes('กลุ่มสาระวิชาความเป็นพลเมืองไทย')) return 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก'
-
-  if (cleanValue.includes('กลุ่มวิชาสังคมศาสตร์') || cleanValue.includes('มนุษยศาสตร์')) return 'กลุ่มสาระวิชาความเป็นพลเมืองไทยและพลเมืองโลก'
-  if (cleanValue.includes('กลุ่มวิชาภาษา')) return 'กลุ่มสาระวิชาภาษาและการสื่อสาร'
-  if (cleanValue.includes('วิทยาศาสตร์กับคณิตศาสตร์')) return 'กลุ่มสาระวิชาคุณภาพชีวิต'
-  if (cleanValue.includes('บูรณาการ')) return 'กลุ่มสาระวิชาการปรับตัวและการใช้ชีวิต'
-
-  if (cleanValue.includes('กลุ่มวิชาแกน')) return 'กลุ่มวิชาแกน'
-  if (cleanValue.includes('กลุ่มวิชาบังคับ') || cleanValue.includes('กลุ่มวิชาเฉพาะด้าน')) return 'กลุ่มวิชาบังคับ'
-
-  if (
-    cleanValue.includes('กลุ่มวิชาเลือก') ||
-    cleanValue.includes('พัฒนาซอฟต์แวร์') ||
-    cleanValue.includes('วิทยาการข้อมูล') ||
-    cleanValue.includes('ปัญญาประดิษฐ์') ||
-    cleanValue.includes('ระบบอัตโนมัติ') ||
-    cleanValue.includes('โครงสร้างพื้นฐานทางเทคโนโลยีสารสนเทศ')
-  ) {
-    return 'กลุ่มวิชาเลือก'
-  }
-
-  if (cleanValue.includes('เสริมสร้างประสบการณ์') || cleanValue.includes('โครงงานสำหรับวิทยาการคอมพิวเตอร์')) {
-    return 'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ'
-  }
-
-  const normalizedCategory = normalizeSubjectCategory(subjectCategory, courseCode)
-  const cleanCourseCode = String(courseCode || '').trim()
-
-  if (normalizedCategory === 'freeElective') return 'วิชาเลือกเสรี'
-
-  if (normalizedCategory === 'generalEducation') {
-    if (cleanCourseCode.startsWith('15-03-')) return 'กลุ่มสาระวิชาอัตลักษณ์'
-    return cleanValue || 'กลุ่มสาระวิชาอัตลักษณ์'
-  }
-
-  if (normalizedCategory === 'specific') {
-    return cleanValue || 'กลุ่มวิชาบังคับ'
-  }
-
-  return cleanValue
-}
 
 function getCurriculumLevelLabel(optionList, value) {
-  if (value === 'all') return 'ทุกระดับ'
   return optionList.find((item) => item.value === value)?.label || '-'
 }
 
-function getSubjectCategoryLabel(optionList, value, courseCode = '') {
-  const normalizedValue = normalizeSubjectCategory(value, courseCode)
-  return optionList.find((item) => item.value === normalizedValue)?.label || '-'
+function getSubjectCategoryLabel(optionList, value) {
+  return optionList.find((item) => item.value === value)?.label || '-'
 }
 
 function getSubjectBucket(subject) {
-  const normalizedCategory = normalizeSubjectCategory(
-    subject.subjectCategory,
-    subject.courseCode
-  )
-
-  const normalizedSubCategory = normalizeSubCategory(
-    subject.subCategory,
-    normalizedCategory,
-    subject.courseCode
-  )
-
-  if (normalizedCategory === 'generalEducation') {
-    return `ge:${normalizedSubCategory}`
+  if (subject.subjectCategory === 'generalEducation') {
+    return `ge:${subject.subCategory || ''}`
   }
 
-  if (normalizedCategory === 'specific') {
-    return `specific:${normalizedSubCategory}`
+  if (subject.subjectCategory === 'specific') {
+    const specificGroupList = [
+      'กลุ่มวิชาแกน',
+      'กลุ่มวิชาเฉพาะด้าน',
+      'กลุ่มวิชาเลือก',
+      'กลุ่มวิชาโครงงานสำหรับวิทยาการคอมพิวเตอร์',
+      'กลุ่มวิชาเสริมสร้างประสบการณ์วิชาชีพ',
+    ]
+
+    if (specificGroupList.includes(subject.subCategory)) {
+      return `specific:${subject.subCategory}`
+    }
+
+    return 'specific:กลุ่มวิชาเฉพาะด้าน'
   }
 
-  if (normalizedCategory === 'freeElective') {
+  if (subject.subjectCategory === 'freeElective') {
     return 'freeElective:วิชาเลือกเสรี'
   }
 
@@ -347,8 +92,7 @@ function getSubjectBucket(subject) {
 }
 
 function getSubjectSelectionId(subject) {
-  const subjectId = subject?.id ?? subject?.course_id ?? subject?.courseId ?? subject?.courseCode ?? ''
-  return String(subjectId || '')
+  return String(subject?.id || subject?.courseId || subject?.course_id || subject?.courseCode || '')
 }
 
 function SubjectReviewDialog({
@@ -366,40 +110,20 @@ function SubjectReviewDialog({
 }) {
   const [reviewTab, setReviewTab] = useState('overview')
   const [searchKeyword, setSearchKeyword] = useState('')
-  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
-  const [selectedSubjectIdList, setSelectedSubjectIdList] = useState([])
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState([])
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   useEffect(() => {
     if (open) {
       setReviewTab('overview')
       setSearchKeyword('')
-      setIsMultiSelectMode(false)
-      setSelectedSubjectIdList([])
+      setSelectedSubjectIds([])
     }
   }, [open])
 
   const safeSubjectList = useMemo(() => {
     return Array.isArray(subjectList) ? subjectList : []
   }, [subjectList])
-
-  const normalizedOverviewLevel = useMemo(() => {
-    const normalizedLevel = normalizeCurriculumLevel(activeOverviewLevel)
-
-    if (normalizedLevel === 'bachelor' || normalizedLevel === 'master' || normalizedLevel === 'doctorate') {
-      return normalizedLevel
-    }
-
-    return 'all'
-  }, [activeOverviewLevel])
-
-  const subjectListForOverview = useMemo(() => {
-    if (normalizedOverviewLevel === 'all') return safeSubjectList
-
-    return safeSubjectList.filter((subject) => {
-      return normalizeCurriculumLevel(subject.curriculumLevel) === normalizedOverviewLevel
-    })
-  }, [normalizedOverviewLevel, safeSubjectList])
 
   const filteredSubjectList = useMemo(() => {
     const normalizedKeyword = searchKeyword.trim().toLowerCase()
@@ -416,35 +140,29 @@ function SubjectReviewDialog({
   }, [searchKeyword, safeSubjectList])
 
   const selectedSubjectIdSet = useMemo(() => {
-    return new Set(selectedSubjectIdList)
-  }, [selectedSubjectIdList])
+    return new Set(selectedSubjectIds)
+  }, [selectedSubjectIds])
 
   const selectedSubjectList = useMemo(() => {
     return safeSubjectList.filter((subject) => selectedSubjectIdSet.has(getSubjectSelectionId(subject)))
   }, [safeSubjectList, selectedSubjectIdSet])
 
-  const filteredSubjectIdList = useMemo(() => {
+  const filteredSubjectIds = useMemo(() => {
     return filteredSubjectList.map((subject) => getSubjectSelectionId(subject)).filter(Boolean)
   }, [filteredSubjectList])
 
-  const isAllFilteredSelected = useMemo(() => {
-    return filteredSubjectIdList.length > 0 && filteredSubjectIdList.every((subjectId) => selectedSubjectIdSet.has(subjectId))
-  }, [filteredSubjectIdList, selectedSubjectIdSet])
+  const isAllFilteredSelected = filteredSubjectIds.length > 0 && filteredSubjectIds.every((subjectId) => selectedSubjectIdSet.has(subjectId))
 
-  const handleToggleMultiSelectMode = () => {
-    if (isMultiSelectMode) {
-      setSelectedSubjectIdList([])
-    }
+  useEffect(() => {
+    const existingSubjectIdSet = new Set(safeSubjectList.map((subject) => getSubjectSelectionId(subject)).filter(Boolean))
+    setSelectedSubjectIds((prev) => prev.filter((subjectId) => existingSubjectIdSet.has(subjectId)))
+  }, [safeSubjectList])
 
-    setIsMultiSelectMode((prev) => !prev)
-  }
-
-  const handleToggleSelectSubject = (subject) => {
+  const handleToggleSubject = (subject) => {
     const subjectId = getSubjectSelectionId(subject)
-
     if (!subjectId) return
 
-    setSelectedSubjectIdList((prev) => {
+    setSelectedSubjectIds((prev) => {
       if (prev.includes(subjectId)) {
         return prev.filter((item) => item !== subjectId)
       }
@@ -454,40 +172,62 @@ function SubjectReviewDialog({
   }
 
   const handleToggleSelectAllFiltered = () => {
-    if (filteredSubjectIdList.length === 0) return
+    if (filteredSubjectIds.length === 0) return
 
-    setSelectedSubjectIdList((prev) => {
+    setSelectedSubjectIds((prev) => {
       if (isAllFilteredSelected) {
-        return prev.filter((subjectId) => !filteredSubjectIdList.includes(subjectId))
+        return prev.filter((subjectId) => !filteredSubjectIds.includes(subjectId))
       }
 
-      return Array.from(new Set([...prev, ...filteredSubjectIdList]))
+      return Array.from(new Set([...prev, ...filteredSubjectIds]))
     })
   }
 
-  const handleBulkDeleteSelectedSubjects = async () => {
+  const handleClearSelectedSubjects = () => {
+    setSelectedSubjectIds([])
+  }
+
+  const handleDeleteSelectedSubjects = async () => {
     if (selectedSubjectList.length === 0) {
       window.alert('กรุณาเลือกรายวิชาที่ต้องการลบก่อน')
       return
     }
 
-    const isConfirmed = window.confirm(`ต้องการลบรายวิชาที่เลือกทั้งหมด ${selectedSubjectList.length} รายวิชาใช่หรือไม่`)
-
-    if (!isConfirmed) return
-
     try {
       setIsBulkDeleting(true)
 
       if (typeof onBulkDeleteSubjects === 'function') {
-        await onBulkDeleteSubjects(selectedSubjectList)
-      } else {
+        const isDeleted = await onBulkDeleteSubjects(selectedSubjectList)
+
+        if (isDeleted !== false) {
+          setSelectedSubjectIds([])
+        }
+
+        return
+      }
+
+      if (selectedSubjectList.length === 1) {
+        const subject = selectedSubjectList[0]
+        await onDeleteSubject(subject.id, subject.courseNameThai || subject.courseCode || 'รายวิชา')
+        setSelectedSubjectIds([])
+        return
+      }
+
+      const isConfirmed = window.confirm(`ต้องการลบรายวิชาที่เลือกทั้งหมด ${selectedSubjectList.length} รายวิชาใช่หรือไม่`)
+      if (!isConfirmed) return
+
+      const originalConfirm = window.confirm
+      window.confirm = () => true
+
+      try {
         for (const subject of selectedSubjectList) {
           await onDeleteSubject(subject.id, subject.courseNameThai || subject.courseCode || 'รายวิชา')
         }
-      }
 
-      setSelectedSubjectIdList([])
-      setIsMultiSelectMode(false)
+        setSelectedSubjectIds([])
+      } finally {
+        window.confirm = originalConfirm
+      }
     } catch (error) {
       console.error('Error deleting selected subjects:', error)
       window.alert('ไม่สามารถลบรายวิชาที่เลือกได้ กรุณาลองใหม่อีกครั้ง')
@@ -497,12 +237,9 @@ function SubjectReviewDialog({
   }
 
   const overviewSectionList = useMemo(() => {
-    const configKey = normalizedOverviewLevel === 'all' ? 'bachelor' : normalizedOverviewLevel
-    const config = overviewConfigByLevel[configKey] || overviewConfigByLevel.bachelor
-
-    return config.map((section) => {
+    return overviewConfig.map((section) => {
       const computedRows = section.rows.map((row) => {
-        const ownedCredits = subjectListForOverview
+        const ownedCredits = safeSubjectList
           .filter((subject) => getSubjectBucket(subject) === row.bucket)
           .reduce((sum, subject) => sum + Number(subject.totalCredits || 0), 0)
 
@@ -523,7 +260,7 @@ function SubjectReviewDialog({
         totalRemainingCredits: computedRows.reduce((sum, row) => sum + row.remainingCredits, 0),
       }
     })
-  }, [normalizedOverviewLevel, subjectListForOverview])
+  }, [safeSubjectList])
 
   const renderOverviewSectionTable = (section) => {
     return (
@@ -569,41 +306,17 @@ function SubjectReviewDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xl"
-      fullWidth
-      scroll="paper"
-      PaperProps={{
-        className: styles.subjectReviewDialogPaper,
-        sx: {
-          overflow: 'hidden',
-        },
-      }}
-    >
-      <DialogContent
-        className={styles.subjectReviewDialogContent}
-        sx={{
-          overflowY: 'auto',
-          overflowX: 'hidden',
-        }}
-      >
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth PaperProps={{ className: styles.subjectReviewDialogPaper }}>
+      <DialogContent className={styles.subjectReviewDialogContent}>
         <Box className={styles.reviewDialogTopBar}>
           <Box>
             <Typography className={styles.reviewDialogTitleText}>
-              ภาพรวมสาขา: {selectedMajor?.majorNameTh || 'ยังไม่ได้ระบุสาขา'} · ระดับ: {getCurriculumLevelLabel(curriculumLevelOptions, normalizedOverviewLevel)}
+              ภาพรวมสาขา: {selectedMajor?.majorNameTh || 'ยังไม่ได้ระบุสาขา'}
             </Typography>
 
             <Typography className={styles.reviewDialogHint}>
-              * แสดงรายวิชาทั้งหมดของสาขานี้ โดยระบบจะจัดกลุ่มจากหมวดวิชา/กลุ่มย่อย และช่วยรองรับรายวิชาที่นำเข้าจากไฟล์ Word
+              * แสดงรายวิชาทั้งหมดของสาขานี้ โดยแต่ละรายวิชาจะมีระดับหลักสูตรกำกับในรายการวิชา
             </Typography>
-
-            {isUsingDefaultOverviewLevel && normalizedOverviewLevel !== 'all' && (
-              <Typography className={styles.reviewDialogSubHint}>
-                ตอนนี้ยังไม่ได้เลือกระดับหลักสูตรในฟอร์ม ระบบจะแสดงเกณฑ์ตัวอย่างของปริญญาตรีก่อน
-              </Typography>
-            )}
 
             {safeSubjectList.length > 0 ? (
               <Typography className={styles.reviewDialogSubHint}>
@@ -632,11 +345,11 @@ function SubjectReviewDialog({
         </Box>
 
         {reviewTab === 'overview' ? (
-          <Box className={styles.overviewContent} sx={{ overflow: 'visible', maxHeight: 'none' }}>
+          <Box className={styles.overviewContent}>
             {overviewSectionList.map((section) => renderOverviewSectionTable(section))}
           </Box>
         ) : (
-          <Box className={styles.listContent} sx={{ overflow: 'visible', maxHeight: 'none' }}>
+          <Box className={styles.listContent}>
             <Box className={styles.reviewToolbar}>
               <TextField
                 fullWidth
@@ -651,29 +364,50 @@ function SubjectReviewDialog({
                   ),
                 }}
               />
+            </Box>
 
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
-                <Button variant={isMultiSelectMode ? 'contained' : 'outlined'} onClick={handleToggleMultiSelectMode}>
-                  {isMultiSelectMode ? 'ยกเลิกเลือกหลายรายการ' : 'เลือกหลายรายการ'}
+            <Box className={styles.bulkActionPanel}>
+              <Box className={styles.bulkActionInfo}>
+                <Typography className={styles.bulkActionTitle}>จัดการรายวิชาที่เลือก</Typography>
+                <Typography className={styles.bulkActionHint}>
+                  เลือกจาก checkbox หน้ารายวิชา หรือกดเลือกทั้งหมดจากรายการที่แสดงอยู่ตอนนี้
+                </Typography>
+              </Box>
+
+              <Box className={styles.bulkButtonGroup}>
+                <Box className={styles.selectedCountBadge}>
+                  เลือกแล้ว {selectedSubjectList.length} รายการ
+                </Box>
+
+                <Button
+                  variant="outlined"
+                  className={styles.selectAllButton}
+                  onClick={handleToggleSelectAllFiltered}
+                  disabled={filteredSubjectIds.length === 0 || isBulkDeleting}
+                >
+                  {isAllFilteredSelected ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด'}
                 </Button>
 
-                {isMultiSelectMode && (
-                  <>
-                    <Button variant="outlined" onClick={handleToggleSelectAllFiltered} disabled={filteredSubjectIdList.length === 0 || isBulkDeleting}>
-                      {isAllFilteredSelected ? 'ยกเลิกเลือกทั้งหมดที่แสดง' : 'เลือกทั้งหมดที่แสดง'}
-                    </Button>
-
-                    <Button
-                      variant="contained"
-                      color="error"
-                      startIcon={<DeleteOutlineRoundedIcon />}
-                      onClick={handleBulkDeleteSelectedSubjects}
-                      disabled={selectedSubjectList.length === 0 || isBulkDeleting}
-                    >
-                      {isBulkDeleting ? 'กำลังลบ...' : `ลบรายการที่เลือก (${selectedSubjectList.length})`}
-                    </Button>
-                  </>
+                {selectedSubjectList.length > 0 && (
+                  <Button
+                    variant="outlined"
+                    className={styles.clearSelectionButton}
+                    disabled={isBulkDeleting}
+                    onClick={handleClearSelectedSubjects}
+                  >
+                    ล้างที่เลือก
+                  </Button>
                 )}
+
+                <Button
+                  variant="contained"
+                  className={styles.deleteSelectedButton}
+                  startIcon={<DeleteOutlineRoundedIcon />}
+                  disabled={selectedSubjectList.length === 0 || isBulkDeleting}
+                  onClick={handleDeleteSelectedSubjects}
+                >
+                  {isBulkDeleting ? 'กำลังลบ...' : `ลบที่เลือก (${selectedSubjectList.length})`}
+                </Button>
               </Box>
             </Box>
 
@@ -683,50 +417,35 @@ function SubjectReviewDialog({
                 <Typography className={styles.emptySubjectDescription}>ลองเปลี่ยนคำค้นหา หรือเพิ่มรายวิชาใหม่จากฟอร์มด้านหลัง</Typography>
               </Box>
             ) : (
-              <Box className={styles.subjectList} sx={{ overflow: 'visible', maxHeight: 'none' }}>
+              <Box className={styles.subjectList}>
                 {filteredSubjectList.map((subject) => {
-                  const normalizedCategory = normalizeSubjectCategory(
-                    subject.subjectCategory,
-                    subject.courseCode
-                  )
-                  const normalizedSubCategory = normalizeSubCategory(
-                    subject.subCategory,
-                    normalizedCategory,
-                    subject.courseCode
-                  )
+                  const subjectSelectionId = getSubjectSelectionId(subject)
+                  const isSelected = selectedSubjectIdSet.has(subjectSelectionId)
 
                   return (
-                    <Box
-                      key={subject.id || subject.courseCode}
-                      className={styles.subjectItemCard}
-                      onClick={isMultiSelectMode ? () => handleToggleSelectSubject(subject) : undefined}
-                      sx={isMultiSelectMode ? { cursor: 'pointer' } : undefined}
-                    >
+                    <Box key={subject.id || subject.courseCode} className={`${styles.subjectItemCard} ${isSelected ? styles.subjectItemCardSelected : ''}`}>
                       <Box className={styles.subjectItemTop}>
                         <Box className={styles.subjectMetaGroup}>
-                          {isMultiSelectMode && (
-                            <Checkbox
-                              checked={selectedSubjectIdSet.has(getSubjectSelectionId(subject))}
-                              onClick={(event) => event.stopPropagation()}
-                              onChange={() => handleToggleSelectSubject(subject)}
-                            />
-                          )}
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => handleToggleSubject(subject)}
+                            disabled={!subjectSelectionId || isBulkDeleting}
+                            className={styles.subjectSelectCheckbox}
+                          />
 
                           <Chip label={subject.courseCode || '-'} className={styles.subjectCodeChip} />
-                          <Chip label={getCurriculumLevelLabel(curriculumLevelOptions, normalizeCurriculumLevel(subject.curriculumLevel))} variant="outlined" className={styles.subjectLevelChip} />
+                          <Chip label={getCurriculumLevelLabel(curriculumLevelOptions, subject.curriculumLevel)} variant="outlined" className={styles.subjectLevelChip} />
                         </Box>
 
-                        {!isMultiSelectMode && (
-                          <Box className={styles.subjectActionGroup}>
-                            <IconButton className={styles.subjectActionButton} onClick={() => onEditSubject(subject)}>
-                              <EditRoundedIcon />
-                            </IconButton>
+                        <Box className={styles.subjectActionGroup}>
+                          <IconButton className={styles.subjectActionButton} onClick={() => onEditSubject(subject)} disabled={isBulkDeleting}>
+                            <EditRoundedIcon />
+                          </IconButton>
 
-                            <IconButton className={styles.subjectActionButton} onClick={() => onDeleteSubject(subject.id, subject.courseNameThai)}>
-                              <DeleteOutlineRoundedIcon />
-                            </IconButton>
-                          </Box>
-                        )}
+                          <IconButton className={styles.subjectActionButton} onClick={() => onDeleteSubject(subject.id, subject.courseNameThai)} disabled={isBulkDeleting}>
+                            <DeleteOutlineRoundedIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
 
                       <Typography className={styles.subjectItemNameThai}>{subject.courseNameThai || '-'}</Typography>
@@ -734,11 +453,11 @@ function SubjectReviewDialog({
 
                       <Box className={styles.subjectInfoRow}>
                         <Typography className={styles.subjectInfoText}>
-                          หมวดวิชา: {getSubjectCategoryLabel(subjectCategoryOptions, normalizedCategory, subject.courseCode)}
+                          หมวดวิชา: {getSubjectCategoryLabel(subjectCategoryOptions, subject.subjectCategory)}
                         </Typography>
 
                         <Typography className={styles.subjectInfoText}>
-                          กลุ่มย่อย: {normalizedSubCategory || '-'}
+                          กลุ่มย่อย: {subject.subCategory || '-'}
                         </Typography>
 
                         <Typography className={styles.subjectInfoText}>
