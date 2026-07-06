@@ -121,7 +121,7 @@ function DegreeCard({ degree, isSelected, onSelect }) {
   )
 }
 
-function CurriculumCard({ curriculum, isExpanded, onToggleExpand, onEditCurriculum, onOpenAddMajorDialog, onOpenEditMajorDialog, onDeleteMajor }) {
+function CurriculumCard({ curriculum, isExpanded, onToggleExpand, onEditCurriculum, onOpenAddMajorDialog, onOpenEditMajorDialog, onDeleteMajor, onDeleteCurriculum }) {
   const majorCount = curriculum.majors.length
 
   return (
@@ -136,6 +136,7 @@ function CurriculumCard({ curriculum, isExpanded, onToggleExpand, onEditCurricul
         <Box className={styles.curriculumActionGroup}>
           <Button variant="text" startIcon={<EditRoundedIcon />} className={styles.editCurriculumButton} onClick={() => onEditCurriculum(curriculum)}>แก้ไขหลักสูตร</Button>
           <Button variant="outlined" startIcon={<AddRoundedIcon />} className={styles.addMajorButton} onClick={() => onOpenAddMajorDialog(curriculum.id)}>เพิ่มสาขา</Button>
+          <Button variant="outlined" startIcon={<DeleteOutlineRoundedIcon />} className={styles.deleteCurriculumButton} onClick={() => onDeleteCurriculum(curriculum)}>ลบหลักสูตร</Button>
         </Box>
       </Box>
 
@@ -436,6 +437,30 @@ function SelectDegreePage() {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const handleDeleteCurriculum = async (curriculum) => {
+    if (!curriculum?.id) return
+
+    const isConfirmed = window.confirm(`ต้องการลบหลักสูตร "${curriculum.curriculumNameTh}" ใช่หรือไม่`)
+    if (!isConfirmed) return
+
+    try {
+      setCurriculumErrorMessage('')
+      await axios.delete(`${apiUrl}/curriculums/${curriculum.id}`, getAuthConfig())
+      await fetchInitialData()
+
+      setExpandedCurriculumIds((prev) => {
+        const nextExpanded = { ...prev }
+        delete nextExpanded[curriculum.id]
+        return nextExpanded
+      })
+
+      if (editingCurriculumId === curriculum.id) resetCurriculumForm()
+    } catch (error) {
+      console.error('Error deleting curriculum:', error)
+      setCurriculumErrorMessage(getApiErrorMessage(error, 'ไม่สามารถลบหลักสูตรได้ กรุณาลองใหม่อีกครั้ง'))
+    }
+  }
+
   const handleToggleCurriculumExpand = (curriculumId) => {
     setExpandedCurriculumIds((prev) => ({ ...prev, [curriculumId]: !prev[curriculumId] }))
   }
@@ -645,6 +670,7 @@ function SelectDegreePage() {
                         onOpenAddMajorDialog={handleOpenAddMajorDialog}
                         onOpenEditMajorDialog={handleOpenEditMajorDialog}
                         onDeleteMajor={handleDeleteMajor}
+                        onDeleteCurriculum={handleDeleteCurriculum}
                       />
                     ))}
                   </Box>

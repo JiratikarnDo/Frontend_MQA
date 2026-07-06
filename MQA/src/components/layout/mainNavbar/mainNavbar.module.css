@@ -241,6 +241,37 @@
   white-space: nowrap;
 }
 
+.logoutButton {
+  min-height: 28px !important;
+  margin-top: 4px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  color: #dc2626 !important;
+  background: rgba(254, 242, 242, 0.86) !important;
+  border: 1px solid rgba(248, 113, 113, 0.2) !important;
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+
+.logoutButton:hover {
+  color: #b91c1c !important;
+  background: #fee2e2 !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.12) !important;
+}
+
+.logoutButton :global(.MuiButton-startIcon) {
+  margin-right: 5px !important;
+}
+
+.logoutButton svg {
+  width: 16px;
+  height: 16px;
+}
+
 @media (max-width: 1024px) {
   .navbar {
     padding-bottom: 12px;

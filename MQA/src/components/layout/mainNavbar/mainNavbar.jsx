@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Button, Typography } from '@mui/material'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import rmuttoLogo from '../../../assets/images/rmuttoLogo.png'
 import styles from './mainNavbar.module.css'
 
@@ -68,6 +69,11 @@ function MainNavbar({ facultyName = 'คณะบริหารธุรกิ�
 
   const handleToggleCourseOpening = () => setIsCourseOpeningOpen((prev) => !prev)
   const handleCloseCourseOpening = () => setIsCourseOpeningOpen(false)
+  const handleLogout = () => {
+    localStorage.removeItem('mqa_token')
+    localStorage.removeItem('user_role')
+    navigate('/', { replace: true })
+  }
 
   return (
     <Box component="header" className={`${styles.navbar} ${isCourseOpeningOpen && canViewCourseOpening ? styles.navbarDropdownOpen : ''}`}>
@@ -85,6 +91,9 @@ function MainNavbar({ facultyName = 'คณะบริหารธุรกิ�
       <Box className={styles.rightSection}>
         <Typography className={styles.userName}>{userProfile.name}</Typography>
         <Typography className={styles.userRole}>{userProfile.role}</Typography>
+        <Button type="button" startIcon={<LogoutRoundedIcon />} className={styles.logoutButton} onClick={handleLogout}>
+          ออกจากระบบ
+        </Button>
       </Box>
 
       <Box className={styles.centerSection}>
@@ -92,6 +101,7 @@ function MainNavbar({ facultyName = 'คณะบริหารธุรกิ�
         {(isAdmin || isStaff) && <NavLink to="/manageMajor" className={({ isActive }) => `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`}>จัดการสาขา</NavLink>}
         {(isAdmin || isStaff) && <NavLink to="/manageDeadline" className={({ isActive }) => `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`}>จัดการกำหนดส่ง</NavLink>}
         {(isAdmin || isStaff) && <NavLink to="/manageSubPlo" className={({ isActive }) => `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`}>จัดการ Sub-PLO</NavLink>}
+        {(isAdmin || isStaff) && <NavLink to="/manageUsers" className={({ isActive }) => `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`}>จัดการผู้ใช้งาน</NavLink>}
 
         {(isAdmin || isHeadMajor || isTeacher) && <NavLink to="/mqaOverview" className={({ isActive }) => `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`}>หน้าแรก</NavLink>}
         {(isAdmin || isDean) && <NavLink to="/deanMajorSelect" className={({ isActive }) => `${styles.navButton} ${isActive ? styles.navButtonActive : ''}`}>พิจารณาเปิดรายวิชา</NavLink>}
