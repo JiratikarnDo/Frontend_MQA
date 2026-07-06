@@ -710,6 +710,22 @@
   font-weight: 700 !important;
 }
 
+.deleteCurriculumButton {
+  white-space: nowrap;
+  border-radius: 14px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.28) !important;
+  background: rgba(254, 242, 242, 0.72) !important;
+}
+
+.deleteCurriculumButton:hover {
+  color: #b91c1c !important;
+  border-color: rgba(220, 38, 38, 0.42) !important;
+  background: #fee2e2 !important;
+}
+
 .dialogSubHint {
   margin-top: -6px !important;
   color: #1d4ed8;
@@ -805,6 +821,7 @@
 
   .editCurriculumButton,
   .addMajorButton,
+  .deleteCurriculumButton,
   .cancelCurriculumEditButton {
     width: 100%;
   }

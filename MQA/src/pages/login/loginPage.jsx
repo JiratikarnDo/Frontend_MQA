@@ -6,7 +6,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import loginCover from '../../assets/images/loginCover.jpg'
 import styles from './loginPage.module.css'
 import { Snackbar, Alert } from '@mui/material'
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotify } from '../../context/NotificationContext';
 
@@ -14,6 +14,33 @@ function LoginPage() {
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL;
   const { showNotify } = useNotify();
+
+  useEffect(() => {
+    const verifyExistingToken = async () => {
+      const token = localStorage.getItem('mqa_token');
+      if (!token) return;
+
+      try {
+        const response = await axios.get(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const role = response.data?.role || localStorage.getItem('user_role') || '';
+        if (role) localStorage.setItem('user_role', role);
+
+        if (role === 'admin') {
+          navigate('/selectDegree', { replace: true });
+        } else {
+          navigate('/mqaOverview', { replace: true });
+        }
+      } catch (error) {
+        localStorage.removeItem('mqa_token');
+        localStorage.removeItem('user_role');
+      }
+    };
+
+    verifyExistingToken();
+  }, [API_URL, navigate]);
 
   const handleBackendLogin = async (googleToken) => {
   try {
