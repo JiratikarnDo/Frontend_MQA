@@ -156,6 +156,33 @@ const toNumberOrZero = (value) => {
 
 const toNullableDate = (value) => value || null
 
+const getTodayDateString = () => {
+  const now = new Date()
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  return localDate.toISOString().slice(0, 10)
+}
+
+const isPastDate = (value) => {
+  const dateText = normalizeText(value)
+  return Boolean(dateText) && dateText < getTodayDateString()
+}
+
+const getPositiveNumberFromValue = (value) => {
+  const text = normalizeText(value)
+  if (!text) return 0
+
+  const directNumber = Number(text)
+  if (Number.isFinite(directNumber)) return directNumber
+
+  const firstNumber = text.match(/\d+(\.\d+)?/)
+  return firstNumber ? Number(firstNumber[0]) : 0
+}
+
+const isCode15CourseCode = (courseCode) => {
+  const cleanCode = normalizeText(courseCode).replace(/\s+/g, '').replace(/–/g, '-')
+  return cleanCode.startsWith('15')
+}
+
 function createDefaultResponsiblePeople() {
   return [
     { id: 1, name: '', signedDate: '' },
@@ -263,7 +290,7 @@ function CourseOpeningMasterPage() {
           try {
             const detailResponse = await axios.get(`${apiUrl}/curriculums/${curriculumId}`, config)
             return getResponseObject(detailResponse.data) || curriculum
-          } catch (error) {
+          } catch {
             return curriculum
           }
         })
@@ -370,13 +397,25 @@ function CourseOpeningMasterPage() {
   }
 
   const handleChangeSubjectRowField = (blockId, rowId, fieldName, value) => {
-    setYearBlocks((previousBlocks) =>
-      previousBlocks.map((block) => {
-        if (block.id !== blockId) return block
-        return { ...block, subjectRows: block.subjectRows.map((row) => (row.id === rowId ? { ...row, [fieldName]: value } : row)) }
-      })
-    )
-  }
+  setYearBlocks((previousBlocks) =>
+    previousBlocks.map((block) => {
+      if (block.id !== blockId) return block
+
+      return {
+        ...block,
+        subjectRows: block.subjectRows.map((row) => {
+          if (row.id !== rowId) return row
+
+          if (fieldName === 'courseCode') {
+            return { ...row, courseCode: value, isFreeElective: isCode15CourseCode(value) ? true : row.isFreeElective }
+          }
+
+          return { ...row, [fieldName]: value }
+        }),
+      }
+    })
+  )
+}
 
   const handleToggleSubjectRowCheckbox = (blockId, rowId, fieldName) => {
     setYearBlocks((previousBlocks) =>
@@ -450,35 +489,37 @@ function CourseOpeningMasterPage() {
   const closeSubjectSelector = () => setSubjectSelectorState({ isOpen: false, blockId: null, rowId: null })
 
   const handleSelectSubject = (selectedSubject) => {
-    const selectedScienceTrack = Boolean(selectedSubject.scienceTrack)
-    const selectedHumanitiesTrack = selectedScienceTrack ? false : Boolean(selectedSubject.humanitiesTrack)
+  const selectedScienceTrack = Boolean(selectedSubject.scienceTrack)
+  const selectedHumanitiesTrack = selectedScienceTrack ? false : Boolean(selectedSubject.humanitiesTrack)
+  const selectedCourseCode = selectedSubject.courseCode ?? ''
+  const selectedIsFreeElective = isCode15CourseCode(selectedCourseCode) || Boolean(selectedSubject.isFreeElective)
 
-    setYearBlocks((previousBlocks) =>
-      previousBlocks.map((block) => {
-        if (block.id !== subjectSelectorState.blockId) return block
+  setYearBlocks((previousBlocks) =>
+    previousBlocks.map((block) => {
+      if (block.id !== subjectSelectorState.blockId) return block
 
-        return {
-          ...block,
-          subjectRows: block.subjectRows.map((row) =>
-            row.id === subjectSelectorState.rowId
-              ? {
-                  ...row,
-                  courseId: selectedSubject.courseId ?? selectedSubject.id ?? '',
-                  courseCode: selectedSubject.courseCode,
-                  courseName: selectedSubject.courseName,
-                  credits: selectedSubject.credits,
-                  isFreeElective: selectedSubject.isFreeElective ?? row.isFreeElective,
-                  scienceTrack: selectedScienceTrack,
-                  humanitiesTrack: selectedHumanitiesTrack,
-                }
-              : row
-          ),
-        }
-      })
-    )
+      return {
+        ...block,
+        subjectRows: block.subjectRows.map((row) =>
+          row.id === subjectSelectorState.rowId
+            ? {
+                ...row,
+                courseId: selectedSubject.courseId ?? selectedSubject.id ?? '',
+                courseCode: selectedCourseCode,
+                courseName: selectedSubject.courseName,
+                credits: selectedSubject.credits,
+                isFreeElective: selectedIsFreeElective,
+                scienceTrack: selectedScienceTrack,
+                humanitiesTrack: selectedHumanitiesTrack,
+              }
+            : row
+        ),
+      }
+    })
+  )
 
-    closeSubjectSelector()
-  }
+  closeSubjectSelector()
+}
 
   const handleAddResponsiblePerson = () => {
     setApprovalForm((previousForm) => ({ ...previousForm, responsiblePeople: [...previousForm.responsiblePeople, { id: Date.now() + Math.random(), name: '', signedDate: '' }] }))
@@ -494,9 +535,19 @@ function CourseOpeningMasterPage() {
   }
 
   const handleChangeResponsiblePerson = (personId, fieldName, value) => {
-    setApprovalForm((previousForm) => ({ ...previousForm, responsiblePeople: previousForm.responsiblePeople.map((person) => (person.id === personId ? { ...person, [fieldName]: value } : person)) }))
+  const nextValue = normalizeText(value)
+
+  if (fieldName === 'name' && nextValue) {
+    const isDuplicated = approvalForm.responsiblePeople.some((person) => person.id !== personId && normalizeText(person.name) === nextValue)
+
+    if (isDuplicated) {
+      window.alert('ไม่สามารถเลือกผู้รับผิดชอบหลักสูตรคนเดิมซ้ำได้')
+      return
+    }
   }
 
+  setApprovalForm((previousForm) => ({ ...previousForm, responsiblePeople: previousForm.responsiblePeople.map((person) => (person.id === personId ? { ...person, [fieldName]: value } : person)) }))
+}
   const handleChangeApprovalField = (event) => {
     const { name, value, checked, type } = event.target
     setApprovalForm((previousForm) => ({ ...previousForm, [name]: type === 'checkbox' ? checked : value }))
@@ -538,33 +589,67 @@ function CourseOpeningMasterPage() {
     }
   }
 
-  const validateDraftPayload = (payload) => {
-    if (!payload.curriculum_name) return 'กรุณาระบุชื่อหลักสูตร'
-    if (!payload.major_name) return 'กรุณาระบุสาขาวิชา/กลุ่มวิชา'
-    if (!payload.semester) return 'กรุณาเลือกภาคการศึกษา'
-    if (!payload.academic_year) return 'กรุณาระบุปีการศึกษา'
-    if (!payload.study_plan) return 'กรุณาเลือกแผนการเรียน'
-    if (!payload.study_mode) return 'กรุณาเลือกภาคการเรียน'
-    if (!payload.campus) return 'กรุณาเลือกเขตพื้นที่'
-    if (!payload.requested_courses.length) return 'กรุณาเพิ่มรายวิชาอย่างน้อย 1 รายวิชา'
+  const validateDraftPayload = (payload, formState = {}) => {
+  if (!payload.curriculum_name) return 'กรุณาระบุชื่อหลักสูตร'
+  if (!payload.major_name) return 'กรุณาระบุสาขาวิชา/กลุ่มวิชา'
+  if (!payload.semester) return 'กรุณาเลือกภาคการศึกษา'
+  if (!payload.academic_year) return 'กรุณาระบุปีการศึกษา'
+  if (!payload.program_type) return 'กรุณาเลือกแผนการศึกษา'
+  if (!payload.study_mode) return 'กรุณาเลือกภาคการเรียน'
+  if (!payload.campus) return 'กรุณาเลือกเขตพื้นที่'
+  if (!payload.requested_courses.length) return 'กรุณาเพิ่มรายวิชาอย่างน้อย 1 รายวิชา'
 
-    const invalidCourseIndex = payload.requested_courses.findIndex((course) => !course.course_id)
-    if (invalidCourseIndex !== -1) return `รายวิชาลำดับที่ ${invalidCourseIndex + 1} ยังไม่ได้เลือกรายวิชาจากระบบ กรุณากดปุ่ม "เลือกรายวิชา"`
+  const subjectRows = (formState.yearBlocks || []).flatMap((block) => block.subjectRows.map((row) => ({ block, row })))
 
-    const invalidGroupIndex = payload.requested_courses.findIndex((course) => !course.group_no || course.group_no <= 0)
-    if (invalidGroupIndex !== -1) return `กรุณาระบุจำนวนกลุ่มของรายวิชาลำดับที่ ${invalidGroupIndex + 1}`
+  const invalidCourseCodeIndex = subjectRows.findIndex(({ row }) => !normalizeText(row.courseCode))
+  if (invalidCourseCodeIndex !== -1) return `กรุณาระบุรหัสวิชาของรายวิชาลำดับที่ ${invalidCourseCodeIndex + 1}`
 
-    if (payload.responsible_persons.length < 3) return 'ผู้รับผิดชอบหลักสูตรต้องมีอย่างน้อย 3 คน'
+  const invalidCreditsIndex = subjectRows.findIndex(({ row }) => getPositiveNumberFromValue(row.credits) <= 0)
+  if (invalidCreditsIndex !== -1) return `กรุณาระบุจำนวนหน่วยกิตของรายวิชาลำดับที่ ${invalidCreditsIndex + 1}`
 
-    const invalidResponsibleIndex = payload.responsible_persons.findIndex((person) => !normalizeText(person.name))
-    if (invalidResponsibleIndex !== -1) return `กรุณาเลือกผู้รับผิดชอบหลักสูตร คนที่ ${invalidResponsibleIndex + 1}`
+  const invalidCourseIndex = payload.requested_courses.findIndex((course) => !course.course_id)
+  if (invalidCourseIndex !== -1) return `รายวิชาลำดับที่ ${invalidCourseIndex + 1} ยังไม่ได้เลือกรายวิชาจากระบบ กรุณากดปุ่ม "เลือกรายวิชา"`
 
-    return ''
-  }
+  const invalidGroupIndex = payload.requested_courses.findIndex((course) => !course.group_no || course.group_no <= 0)
+  if (invalidGroupIndex !== -1) return `กรุณาระบุจำนวนกลุ่มของรายวิชาลำดับที่ ${invalidGroupIndex + 1}`
+
+  const invalidStudentIndex = payload.requested_courses.findIndex((course) => !course.student_count || course.student_count <= 0)
+  if (invalidStudentIndex !== -1) return `กรุณาระบุจำนวนนักศึกษา(จริง)ของรายวิชาลำดับที่ ${invalidStudentIndex + 1}`
+
+  const invalidTrackIndex = payload.requested_courses.findIndex((course) => !course.is_science_related && !course.is_humanities_related)
+  if (invalidTrackIndex !== -1) return `กรุณาติ๊กสายวิทยาศาสตร์ หรือมนุษยศาสตร์และสังคมศาสตร์ ของรายวิชาลำดับที่ ${invalidTrackIndex + 1}`
+
+  if (payload.responsible_persons.length < 3) return 'ผู้รับผิดชอบหลักสูตรต้องมีอย่างน้อย 3 คน'
+
+  const invalidResponsibleIndex = payload.responsible_persons.findIndex((person) => !normalizeText(person.name))
+  if (invalidResponsibleIndex !== -1) return `กรุณาเลือกผู้รับผิดชอบหลักสูตร คนที่ ${invalidResponsibleIndex + 1}`
+
+  const invalidResponsibleDateIndex = payload.responsible_persons.findIndex((person) => !normalizeText(person.signed_date))
+  if (invalidResponsibleDateIndex !== -1) return `กรุณาระบุวันที่ลงนามของผู้รับผิดชอบหลักสูตร คนที่ ${invalidResponsibleDateIndex + 1}`
+
+  const pastResponsibleDateIndex = payload.responsible_persons.findIndex((person) => isPastDate(person.signed_date))
+  if (pastResponsibleDateIndex !== -1) return `วันที่ลงนามของผู้รับผิดชอบหลักสูตร คนที่ ${pastResponsibleDateIndex + 1} ต้องไม่เป็นวันที่ย้อนหลัง`
+
+  const responsibleNameList = payload.responsible_persons.map((person) => normalizeText(person.name)).filter(Boolean)
+  const duplicateResponsibleName = responsibleNameList.find((name, index) => responsibleNameList.indexOf(name) !== index)
+  if (duplicateResponsibleName) return `ไม่สามารถเลือกผู้รับผิดชอบหลักสูตรซ้ำได้: ${duplicateResponsibleName}`
+
+  if (!normalizeText(payload.head_of_department.name)) return 'กรุณาระบุชื่อหัวหน้าสาขาวิชา'
+  if (!normalizeText(payload.head_of_department.signed_date)) return 'กรุณาระบุวันที่ลงนามของหัวหน้าสาขาวิชา'
+  if (isPastDate(payload.head_of_department.signed_date)) return 'วันที่ลงนามของหัวหน้าสาขาวิชาต้องไม่เป็นวันที่ย้อนหลัง'
+
+  if (!normalizeText(payload.vice_dean.name)) return 'กรุณาระบุชื่อรองคณบดี'
+  if (!normalizeText(payload.vice_dean.signed_date)) return 'กรุณาระบุวันที่ลงนามของรองคณบดี'
+  if (isPastDate(payload.vice_dean.signed_date)) return 'วันที่ลงนามของรองคณบดีต้องไม่เป็นวันที่ย้อนหลัง'
+
+  if (normalizeText(payload.dean.signed_date) && isPastDate(payload.dean.signed_date)) return 'วันที่ลงนามของคณบดีต้องไม่เป็นวันที่ย้อนหลัง'
+
+  return ''
+}
 
   const saveDraftRequest = async ({ returnToViewMode = false } = {}) => {
     const payload = buildCourseOpeningPayload()
-    const validationMessage = validateDraftPayload(payload)
+    const validationMessage = validateDraftPayload(payload, { yearBlocks, approvalForm })
     if (validationMessage) { window.alert(validationMessage); return }
 
     const requestId = getCourseOpeningRequestId(requestData) || createdRequestId
@@ -610,8 +695,19 @@ function CourseOpeningMasterPage() {
   }
 
   const handleSaveEditedDocument = () => {
-    saveDraftRequest({ returnToViewMode: true })
-  }
+  saveDraftRequest({ returnToViewMode: true })
+}
+
+const getResponsibleUserOptionsForPerson = (personId) => {
+  const selectedNameSet = new Set(
+    approvalForm.responsiblePeople
+      .filter((person) => person.id !== personId)
+      .map((person) => normalizeText(person.name))
+      .filter(Boolean)
+  )
+
+  return responsibleUserOptions.filter((option) => !selectedNameSet.has(normalizeText(option.name)))
+}
 
   return (
     <Box className={styles.page}>
@@ -833,7 +929,7 @@ function CourseOpeningMasterPage() {
             {approvalForm.responsiblePeople.map((person, index) => (
               <Box key={person.id} className={styles.responsibleItem}>
                 <Autocomplete
-                  options={responsibleUserOptions}
+                  options={getResponsibleUserOptionsForPerson(person.id)}
                   value={responsibleUserOptions.find((option) => option.name === person.name) || (person.name ? { id: `current-${person.id}`, name: person.name, email: '', departmentId: '', departmentName: '' } : null)}
                   getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name ?? '')}
                   isOptionEqualToValue={(option, value) => String(option?.id ?? '') === String(value?.id ?? '') || String(option?.name ?? '') === String(value?.name ?? '')}
@@ -849,10 +945,8 @@ function CourseOpeningMasterPage() {
                   renderInput={(params) => <TextField {...params} label={`ผู้รับผิดชอบหลักสูตร คนที่ ${index + 1}`} placeholder="พิมพ์ชื่อเพื่อค้นหา" fullWidth />}
                 />
 
-                <TextField type="date" value={person.signedDate} onChange={(event) => handleChangeResponsiblePerson(person.id, 'signedDate', event.target.value)} fullWidth disabled={isFormDisabled} InputLabelProps={{ shrink: true }} />
-
+                <TextField type="date" value={person.signedDate} onChange={(event) => handleChangeResponsiblePerson(person.id, 'signedDate', event.target.value)} fullWidth disabled={isFormDisabled} InputLabelProps={{ shrink: true }} inputProps={{ min: getTodayDateString() }} />
                 <Box className={styles.responsibleItemActions}>
-                  <Box className={styles.signaturePlaceholder}>ลายเซ็น</Box>
                   <Button variant="outlined" color="error" className={styles.removeResponsibleButton} onClick={() => handleRemoveResponsiblePerson(person.id)} disabled={isFormDisabled || approvalForm.responsiblePeople.length <= 3}>ลบ</Button>
                 </Box>
               </Box>
@@ -872,7 +966,7 @@ function CourseOpeningMasterPage() {
               <Box key={nameKey} className={styles.signerCard}>
                 <Typography className={styles.signerTitle}>{title}</Typography>
                 <TextField name={nameKey} value={approvalForm[nameKey]} onChange={handleChangeApprovalField} fullWidth disabled={isFormDisabled} />
-                <TextField type="date" name={dateKey} value={approvalForm[dateKey]} onChange={handleChangeApprovalField} fullWidth disabled={isFormDisabled} InputLabelProps={{ shrink: true }} />
+                <TextField type="date" name={dateKey} value={approvalForm[dateKey]} onChange={handleChangeApprovalField} fullWidth disabled={isFormDisabled} InputLabelProps={{ shrink: true }} inputProps={{ min: getTodayDateString() }} />
               </Box>
             ))}
           </Box>
