@@ -20,6 +20,7 @@ import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownR
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded'
 import styles from './selectDegreePage.module.css'
 
+
 const degreeOptions = [
   { id: 'bachelor', shortLabel: 'ตรี', title: 'ปริญญาตรี', description: 'สำหรับการจัดการหลักสูตรระดับปริญญาตรี' },
   { id: 'master', shortLabel: 'โท', title: 'ปริญญาโท', description: 'สำหรับการจัดการหลักสูตรระดับปริญญาโท' },

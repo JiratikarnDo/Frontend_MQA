@@ -54,6 +54,7 @@ const emptyFormValue = {
 const getRoleLabel = (role) => roleOptions.find((item) => item.value === role)?.label || role || 'ยังไม่ระบุตำแหน่ง'
 
 const normalizeText = (value) => String(value ?? '').trim()
+
 const getResponseList = (data, keys = []) => {
   if (Array.isArray(data)) return data
 
@@ -250,12 +251,31 @@ function ManageUsersPage() {
     setDeleteConfirmDialog({ open: false, userId: null, userName: '' })
   }
 
-  const handleConfirmDeleteUser = () => {
+  const handleConfirmDeleteUser = async () => {
     if (!deleteConfirmDialog.userId) return
 
-    setUserList((prev) => prev.filter((user) => user.id !== deleteConfirmDialog.userId))
-    handleCloseDeleteConfirmDialog()
-    handleCloseDialog()
+    try {
+      setIsSavingUser(true)
+
+      await axios.delete(`${apiUrl}/users/users/${deleteConfirmDialog.userId}`, getAuthConfig())
+
+      setUserList((prev) => prev.filter((user) => user.id !== deleteConfirmDialog.userId))
+      handleCloseDeleteConfirmDialog()
+      handleCloseDialog()
+      window.alert('ลบผู้ใช้สำเร็จ')
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      if (handleUnauthorized(error)) return
+
+      if (error.response?.status === 404 || error.response?.status === 405) {
+        window.alert('ยังไม่พบ API สำหรับลบผู้ใช้ใน backend กรุณาเพิ่ม DELETE /users/users/{user_id} ก่อน')
+        return
+      }
+
+      window.alert(error.response?.data?.detail || 'ไม่สามารถลบผู้ใช้ได้')
+    } finally {
+      setIsSavingUser(false)
+    }
   }
 
   const getAuthConfig = () => {
@@ -296,11 +316,6 @@ function ManageUsersPage() {
       const currentUser = userList.find((user) => user.id === editingUserId)
       if (!currentUser) return
 
-      if (!nextUser.departmentId) {
-        window.alert('API แก้ไขสาขาตอนนี้ยังต้องส่ง department_id เป็นตัวเลข จึงยังไม่สามารถย้ายผู้ใช้ไปไว้กลุ่มรอจัดสังกัดได้')
-        return
-      }
-
       try {
         setIsSavingUser(true)
 
@@ -339,13 +354,33 @@ function ManageUsersPage() {
       }
 
       return
-    } else {
-      setUserList((prev) => [{ id: Date.now(), ...nextUser }, ...prev])
-      if (nextUser.departmentId) setSelectedDepartmentId(nextUser.departmentId)
-      else setSelectedDepartmentId(UNASSIGNED_DEPARTMENT_ID)
     }
 
-    handleCloseDialog()
+    try {
+      setIsSavingUser(true)
+
+      const response = await axios.post(`${apiUrl}/users/users/`, {
+        prefixname: nextUser.prefixname || null,
+        first_name: nextUser.firstName,
+        last_name: nextUser.lastName,
+        email: nextUser.email,
+        role: nextUser.role,
+        department_id: nextUser.departmentId,
+      }, getAuthConfig())
+
+      const createdUser = normalizeUser(response.data?.data || response.data)
+      setUserList((prev) => [{ ...nextUser, ...createdUser }, ...prev])
+      if (nextUser.departmentId) setSelectedDepartmentId(nextUser.departmentId)
+      else setSelectedDepartmentId(UNASSIGNED_DEPARTMENT_ID)
+      window.alert('เพิ่มผู้ใช้ใหม่สำเร็จ')
+      handleCloseDialog()
+    } catch (error) {
+      console.error('Error creating user:', error)
+      if (handleUnauthorized(error)) return
+      window.alert(error.response?.data?.detail || 'ไม่สามารถเพิ่มผู้ใช้ใหม่ได้')
+    } finally {
+      setIsSavingUser(false)
+    }
   }
 
   const getDepartmentName = (departmentId) => {
@@ -474,63 +509,63 @@ function ManageUsersPage() {
               )}
 
               {!isLoading && !errorMessage && (
-              <Table className={styles.table}>
-                <TableHead>
-                  <TableRow className={styles.tableHeadRow}>
-                    <TableCell className={styles.headCell}>ชื่อผู้ใช้งาน</TableCell>
-                    <TableCell className={styles.headCell}>อีเมล</TableCell>
-                    <TableCell className={styles.headCell}>ตำแหน่ง</TableCell>
-                    <TableCell className={styles.headCell}>สาขา</TableCell>
-                    <TableCell className={styles.headCell}>จัดการ</TableCell>
-                  </TableRow>
-                </TableHead>
+                <Table className={styles.table}>
+                  <TableHead>
+                    <TableRow className={styles.tableHeadRow}>
+                      <TableCell className={styles.headCell}>ชื่อผู้ใช้งาน</TableCell>
+                      <TableCell className={styles.headCell}>อีเมล</TableCell>
+                      <TableCell className={styles.headCell}>ตำแหน่ง</TableCell>
+                      <TableCell className={styles.headCell}>สาขา</TableCell>
+                      <TableCell className={styles.headCell}>จัดการ</TableCell>
+                    </TableRow>
+                  </TableHead>
 
-                <TableBody>
-                  {visibleUserList.map((user) => (
-                    <TableRow key={user.id} className={styles.tableBodyRow}>
-                      <TableCell className={styles.bodyCell}>
-                        <Box className={styles.userNameCell}>
-                          <Box className={styles.avatarCircle}>{(user.firstName || 'ผ').charAt(0)}</Box>
-                          <Box>
-                            <Typography className={styles.userName}>{`${user.prefixname || ''} ${user.firstName} ${user.lastName}`.trim()}</Typography>
-                            <Typography className={styles.userSubText}>รหัสผู้ใช้ #{user.id}</Typography>
+                  <TableBody>
+                    {visibleUserList.map((user) => (
+                      <TableRow key={user.id} className={styles.tableBodyRow}>
+                        <TableCell className={styles.bodyCell}>
+                          <Box className={styles.userNameCell}>
+                            <Box className={styles.avatarCircle}>{(user.firstName || 'ผ').charAt(0)}</Box>
+                            <Box>
+                              <Typography className={styles.userName}>{`${user.prefixname || ''} ${user.firstName} ${user.lastName}`.trim()}</Typography>
+                              <Typography className={styles.userSubText}>รหัสผู้ใช้ #{user.id}</Typography>
+                            </Box>
                           </Box>
-                        </Box>
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell className={styles.bodyCell}>
-                        <Box className={styles.emailCell}>
-                          <MailOutlineRoundedIcon fontSize="small" />
-                          <Typography className={user.email ? styles.emailText : styles.emptyEmailText}>{user.email || 'ยังไม่ได้ระบุอีเมล'}</Typography>
-                        </Box>
-                      </TableCell>
+                        <TableCell className={styles.bodyCell}>
+                          <Box className={styles.emailCell}>
+                            <MailOutlineRoundedIcon fontSize="small" />
+                            <Typography className={user.email ? styles.emailText : styles.emptyEmailText}>{user.email || 'ยังไม่ได้ระบุอีเมล'}</Typography>
+                          </Box>
+                        </TableCell>
 
-                      <TableCell className={styles.bodyCell}>
-                        <Chip label={getRoleLabel(user.role)} className={user.role ? styles.roleChip : styles.emptyRoleChip} />
-                      </TableCell>
+                        <TableCell className={styles.bodyCell}>
+                          <Chip label={getRoleLabel(user.role)} className={user.role ? styles.roleChip : styles.emptyRoleChip} />
+                        </TableCell>
 
-                      <TableCell className={styles.bodyCell}>
-                        <Typography className={user.departmentId ? styles.departmentText : styles.unassignedText}>{getDepartmentName(user.departmentId)}</Typography>
-                      </TableCell>
+                        <TableCell className={styles.bodyCell}>
+                          <Typography className={user.departmentId ? styles.departmentText : styles.unassignedText}>{getDepartmentName(user.departmentId)}</Typography>
+                        </TableCell>
 
-                      <TableCell className={styles.bodyCell}>
-                        <Button variant="outlined" startIcon={<EditRoundedIcon />} className={styles.editButton} onClick={() => handleOpenEditDialog(user)}>
-                          แก้ไข
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        <TableCell className={styles.bodyCell}>
+                          <Button variant="outlined" startIcon={<EditRoundedIcon />} className={styles.editButton} onClick={() => handleOpenEditDialog(user)}>
+                            แก้ไข
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
 
-                  {visibleUserList.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className={styles.emptyTableCell}>
-                        <Typography className={styles.emptyStateTitle}>ไม่พบรายชื่อผู้ใช้งาน</Typography>
-                        <Typography className={styles.emptyStateDescription}>ลองเปลี่ยนคำค้นหา หรือตรวจสอบตัวกรองตำแหน่งอีกครั้ง</Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    {visibleUserList.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className={styles.emptyTableCell}>
+                          <Typography className={styles.emptyStateTitle}>ไม่พบรายชื่อผู้ใช้งาน</Typography>
+                          <Typography className={styles.emptyStateDescription}>ลองเปลี่ยนคำค้นหา หรือตรวจสอบตัวกรองตำแหน่งอีกครั้ง</Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               )}
             </TableContainer>
           </Box>
